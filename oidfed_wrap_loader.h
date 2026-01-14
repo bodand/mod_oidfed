@@ -1,11 +1,8 @@
 #ifndef OIDFED_OIDFED_WRAP_LOADER_H
 #define OIDFED_OIDFED_WRAP_LOADER_H
 
+#include <oidfed_config.h>
 #include <oidfed_wrap_lib.h>
-
-struct oidfed_worker_config {
-    bool lazy_load_symbols;
-};
 
 apr_status_t
 oidfed_worker_init(const struct oidfed_worker_config* cfg, apr_pool_t* p);

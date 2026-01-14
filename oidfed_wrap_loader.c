@@ -1,9 +1,10 @@
-#include <apr_dso.h>
-#include <apr_portable.h>
+#include <ap_config.h>
+#include <httpd.h>
+#include <http_log.h>
+
 #include <assert.h>
 #include <dlfcn.h>
-#include <httpd.h>
-#include "http_log.h"
+
 #include <oidfed_wrap_loader.h>
 
 #define OIDFED_FN_HOLDER_PREFIX OIFFn_

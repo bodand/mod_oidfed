@@ -2,7 +2,7 @@ builddir=.
 top_srcdir=/etc/httpd
 top_builddir=/usr/lib64/httpd
 
-SRC = oidfed_wrap_loader.c
+SRC = oidfed_wrap_loader.c oidfed_config.c oidfed_req_handler.c
 OBJ = ${SRC:%.c=%.lo}
 SLO = ${SRC:.c=.slo}
 
