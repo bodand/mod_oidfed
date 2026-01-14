@@ -7,7 +7,4 @@
 int
 oidfed_req_handler(request_rec* r);
 
-int
-oidfed_req_well_known_handler(request_rec* r);
-
 #endif

@@ -7,14 +7,31 @@
 #include <oidfed_wrap_loader.h>
 #include <oidfed_req_handler.h>
 
-#define CMP_EQ 0
+static int
+req_login_ui_handler(const struct oidfed_config* config, request_rec* r);
+
+static int
+req_well_known_handler(const struct oidfed_config* config, request_rec* r);
 
 int
 oidfed_req_handler(request_rec* r) {
     if (strcmp(r->handler, "oidfed") != CMP_EQ) return DECLINED;
+    if (!r->uri) return DECLINED;
 
     const struct oidfed_config* config = ap_get_module_config(r->per_dir_config, &oidfed_module);
 
+    if (strcmp(r->uri, OIDFED_WELL_KNOWN_PATH) == CMP_EQ) {
+        return req_well_known_handler(config, r);
+    }
+    if (strcmp(r->uri, config->login_url) == CMP_EQ) {
+        return req_login_ui_handler(config, r);
+    }
+
+    return HTTP_NOT_FOUND;
+}
+
+int
+req_login_ui_handler(const struct oidfed_config* config, request_rec* r) {
     struct oidfed_collection_filter filter = oidfedEmptyCollectionFilter();
     oidfedCollectionFilterAppend(&filter, oidfedEntityCollectionFilterOPs());
 
@@ -77,5 +94,10 @@ oidfed_req_handler(request_rec* r) {
         oidfedTrustAnchorDestroy(&tas[i]);
     }
 
+    return OK;
+}
+
+int
+req_well_known_handler(const struct oidfed_config* config, request_rec* r) {
     return OK;
 }
