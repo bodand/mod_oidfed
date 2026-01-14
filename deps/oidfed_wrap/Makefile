@@ -1,6 +1,6 @@
 ## Makefile to pull and build oidfed_wrap locally
 #
-OIDFED_WRAP_VERSION := 68c6d6c9f8cc783b7b6335a468478a09ae7a33e9
+OIDFED_WRAP_VERSION := 3d8fe1cb819b2d5e45309cd31864891204639bcd
 
 .PHONY: ensure checkout build install clean
 ensure: checkout build install
@@ -12,13 +12,13 @@ install: .install.time
 
 .install.time: .build.time
 	exec ${MAKE} -C src PREFIX=../lib install
-	touch $@
+	exec touch $@
 
 build: .build.time
 
 .build.time: Makefile
 	exec ${MAKE} -C src build
-	touch $@
+	exec touch $@
 
 clean:
 	exec ${MAKE} -C src clean
