@@ -1,0 +1,3 @@
+[submodule "deps/oidfed_wrap/src"]
+	path = deps/oidfed_wrap/src
+	url = https://github.com/bodand/oidfed-wrap/
