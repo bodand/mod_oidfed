@@ -45,13 +45,13 @@ config_filter_append(server_rec* sv,
 
 const char*
 oidfed_cfg_wrap_lazy(cmd_parms* parms, void* mconfig, int on) {
-    struct oidfed_config* const config = mconfig;
+    struct oidfed_config* const config = ap_get_module_config(parms->server->module_config, &oidfed_module);
     config->worker_cfg.lazy_load_symbols = (bool) on;
     return NULL;
 }
 
-const char* oidfed_cfg_login_url(cmd_parms* cmd, void* cfg, const char* url) {
-    struct oidfed_config* const config = cfg;
+const char* oidfed_cfg_login_url(cmd_parms* parms, void* cfg, const char* url) {
+    struct oidfed_config* const config = ap_get_module_config(parms->server->module_config, &oidfed_module);
     if (url[0] != '/') return "Login path must be absolute";
 
     if (strlcpy(config->login_url, url, CONFIG_LOGIN_URL_SIZE_MAX) > CONFIG_LOGIN_URL_SIZE_MAX)
@@ -75,7 +75,7 @@ oidfed_cfg_fed_singing_key(cmd_parms* parms, void* cfg, const char* key_file) {
     if (finfo.valid & APR_FINFO_PROT) return "Key file cannot be checked for mode to be 400. Refusing using it.";
     if (finfo.protection != 0400) return "Key file must be readable only by owner (mode 400).";
 
-    struct oidfed_config* const config = cfg;
+    struct oidfed_config* const config = ap_get_module_config(parms->server->module_config, &oidfed_module);
     if (strlcpy(config->federation_signing_key_file, key_file,
                 sizeof(config->federation_signing_key_file)) >= sizeof(config->federation_signing_key_file))
         return "Federation signing key file path too long";
@@ -90,7 +90,7 @@ str_empty(const char* str) {
 
 const char*
 oidfed_cfg_set_entity_id(cmd_parms* parms, void* mconfig, const char* w) {
-    struct oidfed_config* const cfg = mconfig;
+    struct oidfed_config* const cfg = ap_get_module_config(parms->server->module_config, &oidfed_module);
     if (!str_empty(cfg->entity_id))
         ap_log_error(APLOG_MARK, APLOG_WARNING, 0, parms->server,
                  "entity id set multiple times: was %s, now: %s", cfg->entity_id, w);
@@ -103,7 +103,7 @@ oidfed_cfg_set_entity_id(cmd_parms* parms, void* mconfig, const char* w) {
 
 const char*
 oidfed_cfg_add_authority_hint(cmd_parms* parms, void* mconfig, const char* w) {
-    struct oidfed_config* const cfg = mconfig;
+    struct oidfed_config* const cfg = ap_get_module_config(parms->server->module_config, &oidfed_module);
     if (cfg->authority_hints_sz == CONFIG_AUTHORITY_HINTS_MAX) return "Too many authority hints in configuration";
 
     cfg->authority_hints[cfg->authority_hints_sz++] = apr_pstrdup(parms->pool, w);
@@ -125,7 +125,7 @@ oidfed_add_op_filter_chain(cmd_parms* parms, void* mconfig, int argc, char* cons
         return NULL;
     }
 
-    struct oidfed_config* const cfg = mconfig;
+    struct oidfed_config* const cfg = ap_get_module_config(parms->server->module_config, &oidfed_module);
     struct oidfed_filter_config** new_filter = filter_list_end(cfg);
     if (strcmp(argv[0], "op") == CMP_EQ
         || strcmp(argv[0], "explicit") == CMP_EQ
@@ -150,11 +150,11 @@ oidfed_add_op_filter_chain(cmd_parms* parms, void* mconfig, int argc, char* cons
 }
 
 const char*
-oidfed_cfg_add_trust_anchor(cmd_parms* cmd, void* cfg, const char* entity_id) {
-    struct oidfed_config* const config = cfg;
+oidfed_cfg_add_trust_anchor(cmd_parms* parms, void* cfg, const char* entity_id) {
+    struct oidfed_config* const config = ap_get_module_config(parms->server->module_config, &oidfed_module);
     if (config->trust_anchors_sz == CONFIG_TRUST_ANCHORS_MAX) return "Too many trust anchors in configuration";
 
-    config->trust_anchors[config->trust_anchors_sz++] = apr_pstrdup(cmd->pool, entity_id);
+    config->trust_anchors[config->trust_anchors_sz++] = apr_pstrdup(parms->pool, entity_id);
 
     return NULL;
 }
@@ -185,7 +185,7 @@ oidfed_worker_runtime_init(server_rec* sv, struct oidfed_config* config) {
         runtime->trust_anchors[i] = OIFMayLoad_oidfedTrustAnchorCreate_server(sv, (char*) trust_anchor_id);
     }
     runtime->trust_anchors_sz = config->trust_anchors_sz;
-    fprintf(stderr, "runtime: %zu TAs", runtime->trust_anchors_sz);
+    fprintf(stderr, "runtime: %zu TAs\n", runtime->trust_anchors_sz);
 
     runtime->collector = OIFMayLoad_oidfedCollectorCreateSmart_server(sv,
                                                                       runtime->trust_anchors,
@@ -214,4 +214,5 @@ oidfed_config_init(struct oidfed_config* cfg) {
     strcpy(cfg->federation_signing_key_file, CONFIG_DEFAULT_FEDERATION_KEY_FILE);
     cfg->trust_anchors_sz = 0;
     cfg->authority_hints_sz = 0;
+    cfg->filters = NULL;
 }

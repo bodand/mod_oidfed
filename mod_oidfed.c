@@ -4,10 +4,16 @@
 #include <http_core.h>
 #include <http_protocol.h>
 #include <http_request.h>
+#include <http_log.h>
 
 #include <oidfed_config.h>
 #include <oidfed_req_handler.h>
 #include <oidfed_wrap_loader.h>
+
+static bool
+str_empty(const char* str) {
+    return str[0] == '\0';
+}
 
 void
 worker_init_handler(apr_pool_t* pchild, server_rec* s);
@@ -40,9 +46,26 @@ oidfed_merge_dir_config(apr_pool_t* apr_pool, void* base_conf, void* new_conf) {
     const struct oidfed_config* const new = new_conf;
     struct oidfed_config* const result = oidfed_create_dir_config(apr_pool, NULL);
 
+    result->worker_cfg.lazy_load_symbols = new->worker_cfg.lazy_load_symbols;
+
+    if (str_empty(new->login_url))
+        strcpy(result->login_url, base->login_url);
+    else
+        strcpy(result->login_url, new->login_url);
+
+    if (str_empty(new->entity_id))
+        strcpy(result->entity_id, base->entity_id);
+    else
+        strcpy(result->entity_id, new->entity_id);
+
+    if (str_empty(new->federation_signing_key_file))
+        strcpy(result->federation_signing_key_file, base->federation_signing_key_file);
+    else
+        strcpy(result->federation_signing_key_file, new->federation_signing_key_file);
+
     result->trust_anchors_sz = base->trust_anchors_sz + new->trust_anchors_sz;
     if (result->trust_anchors_sz > CONFIG_TRUST_ANCHORS_MAX) {
-        errno = EINVAL;
+        ap_log_error(APLOG_MARK, APLOG_EMERG, 0, NULL, "Too many trust anchors");
         return NULL;
     }
 
@@ -52,6 +75,25 @@ oidfed_merge_dir_config(apr_pool_t* apr_pool, void* base_conf, void* new_conf) {
     memcpy(result->trust_anchors + base->trust_anchors_sz,
            new->trust_anchors,
            sizeof(char*) * new->trust_anchors_sz);
+
+    result->authority_hints_sz = base->authority_hints_sz + new->authority_hints_sz;
+    if (result->authority_hints_sz > CONFIG_AUTHORITY_HINTS_MAX) {
+        ap_log_error(APLOG_MARK, APLOG_EMERG, 0, NULL, "Too many authority hints");
+        return NULL;
+    }
+    memcpy(result->authority_hints,
+           base->authority_hints,
+           sizeof(char*) * base->authority_hints_sz);
+    memcpy(result->authority_hints + base->authority_hints_sz,
+           new->authority_hints,
+           sizeof(char*) * new->authority_hints_sz);
+
+    if (new->filters) {
+        result->filters = new->filters;
+    }
+    else {
+        result->filters = (struct oidfed_filter_config*) base->filters;
+    }
 
     return result;
 }
@@ -88,11 +130,12 @@ oidfed_type_dispatcher(request_rec* r) {
 
     const struct oidfed_config* config = ap_get_module_config(r->server->module_config,
                                                               &oidfed_module);
+    const char* login_url = str_empty(config->login_url) ? CONFIG_DEFAULT_LOGIN_PATH : config->login_url;
     if (strcmp(r->uri, OIDFED_WELL_KNOWN_PATH) == CMP_EQ) {
         r->handler = "oidfed";
         return OK;
     }
-    if (strcmp(r->uri, config->login_url) == CMP_EQ) {
+    if (strcmp(r->uri, login_url) == CMP_EQ) {
         r->handler = "oidfed";
         return OK;
     }
