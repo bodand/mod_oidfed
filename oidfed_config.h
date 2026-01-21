@@ -22,6 +22,8 @@ struct oidfed_worker_config {
 struct oidfed_config {
     char login_url[CONFIG_LOGIN_URL_SIZE_MAX];
 
+    char federation_signing_key_file[APR_PATH_MAX];
+
     struct oidfed_worker_config worker_cfg;
 
     const char* trust_anchors[CONFIG_TRUST_ANCHORS_MAX];
@@ -37,6 +39,9 @@ oidfed_cfg_wrap_lazy(cmd_parms* parms, void* mconfig, int on);
 const char*
 oidfed_cfg_login_url(cmd_parms* cmd, void* cfg, const char* url);
 
+const char*
+oidfed_cfg_fed_singing_key(cmd_parms* parms, void* cfg, const char* key_file);
+
 // APACHE //
 
 extern module AP_MODULE_DECLARE_DATA oidfed_module;
@@ -48,6 +53,8 @@ static const command_rec oidfed_cmds[] = {
                   "Sets the path to redirect the user to when logging in."),
     AP_INIT_FLAG("OidfedWrapperLazyLoadSymbols", oidfed_cfg_wrap_lazy, NULL, RSRC_CONF,
                  "Lazily load symbols when loading the wrap library"),
+    AP_INIT_TAKE1("OidfedFederationSigningKeyFile", oidfed_cfg_fed_singing_key, NULL, RSRC_CONF,
+                  "The private key with which to sign federation data"),
     {NULL}
 };
 
