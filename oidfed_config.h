@@ -15,6 +15,7 @@
 #define CONFIG_LOGIN_URL_SIZE_MAX 256
 #define CONFIG_ENTITY_ID_MAX 1024
 #define CONFIG_FILTER_TYPE_MAX 64
+#define CONFIG_SIGNALG_MAX 5
 
 // Default configuration values //
 // Warning: They are initialized without length checks. Setting longer defaults
@@ -23,7 +24,10 @@
 #define CONFIG_DEFAULT_LAZY_LOAD_SYMBOLS true
 #define CONFIG_DEFAULT_ENTITY_ID "badly-configured-entity"
 #define CONFIG_DEFAULT_FEDERATION_KEY_FILE "./federation.key"
+#define CONFIG_DEFAULT_OIDC_KEY_FILE "./oidc.key"
 #define CONFIG_DEFAULT_LOGIN_PATH "/login"
+#define CONFIG_DEFAULT_FED_SIGNALG "ES521"
+#define CONFIG_DEFAULT_OIDC_SIGNALG "ES521"
 
 #define OIDFED_WELL_KNOWN_PATH "/.well-known/openid-federation"
 
@@ -44,6 +48,20 @@ struct oidfed_worker_runtime {
 
     /// Entity collector based on the above trust anchors
     struct oidfed_collector collector;
+
+    /// Signer object for OID Federation signing
+    struct oidfed_versatile_signer federation_signer;
+    /// Key storage for OID Federation signing
+    struct oidfed_single_key_storage federation_key_storage;
+    /// Signature algorithm for OID Federation signing
+    struct oidfed_signature_algorithm federation_signing_alg;
+
+    /// Signer object for OID Connect signing
+    struct oidfed_versatile_signer oidc_signer;
+    /// Key storage for OID Connect signing
+    struct oidfed_single_key_storage oidc_key_storage;
+    /// Signature algorithm for OID Connect signing
+    struct oidfed_signature_algorithm oidc_signing_alg;
 };
 
 struct oidfed_filter_config {
@@ -80,16 +98,27 @@ struct oidfed_config {
     /* OpenID Federation configuration */
     /// Entity ID of the entity in the federation
     char entity_id[CONFIG_ENTITY_ID_MAX];
+
     /// Authority hints of the entity
     char* authority_hints[CONFIG_AUTHORITY_HINTS_MAX];
     size_t authority_hints_sz;
-    /// Trust anchors accepted by given entity
+
+    /// Trust anchors accepted by this entity
     char* trust_anchors[CONFIG_TRUST_ANCHORS_MAX];
     size_t trust_anchors_sz;
-    /// OP Filters
+
+    /// OP Filters (linked list)
     struct oidfed_filter_config* filters;
-    /// Key file to sign federation JWT-s with
+
+    /// Key file to sign federation metadata with
     char federation_signing_key_file[APR_PATH_MAX];
+    /// Signature algorithm to use for federation metadata signing
+    char federation_signing_alg[CONFIG_SIGNALG_MAX];
+
+    /// Key file to sign replying-party metadata with
+    char oidc_signing_key_file[APR_PATH_MAX];
+    /// Signature algorithm to use for replying-party metadata signing
+    char oidc_signing_alg[CONFIG_SIGNALG_MAX];
 };
 
 void
@@ -111,9 +140,6 @@ const char*
 oidfed_cfg_login_url(cmd_parms* cmd, void* cfg, const char* url);
 
 const char*
-oidfed_cfg_fed_singing_key(cmd_parms* parms, void* cfg, const char* key_file);
-
-const char*
 oidfed_cfg_set_entity_id(cmd_parms* parms, void* mconfig, const char* w);
 
 const char*
@@ -121,6 +147,18 @@ oidfed_cfg_add_authority_hint(cmd_parms* parms, void* mconfig, const char* w);
 
 const char*
 oidfed_add_op_filter_chain(cmd_parms* parms, void* mconfig, int argc, char* const argv[]);
+
+const char*
+oidfed_cfg_set_fed_private_key(cmd_parms* parms, void* cfg, const char* key_file);
+
+const char*
+oidfed_cfg_set_oidc_private_key(cmd_parms* parms, void* mconfig, const char* w);
+
+const char*
+oidfged_cfg_set_oidc_signalg(cmd_parms* parms, void* mconfig, const char* w);
+
+const char*
+oidfged_cfg_set_fed_signalg(cmd_parms* parms, void* mconfig, const char* w);
 
 // APACHE //
 
@@ -137,10 +175,18 @@ static const command_rec oidfed_cmds[] = {
                   "Sets the path to redirect the user to when logging in"),
     AP_INIT_FLAG("OidfedWrapperLazyLoadSymbols", oidfed_cfg_wrap_lazy, NULL, RSRC_CONF,
                  "Lazily load symbols when loading the wrap library"),
-    AP_INIT_TAKE1("OidfedFederationSigningKeyFile", oidfed_cfg_fed_singing_key, NULL, RSRC_CONF,
+    AP_INIT_TAKE1("OidfedFederationSigningKeyFile", oidfed_cfg_set_fed_private_key, NULL, RSRC_CONF,
                   "The private key with which to sign federation data"),
     AP_INIT_TAKE_ARGV("OidfedAddOpFilterChain", oidfed_add_op_filter_chain, NULL, RSRC_CONF,
                       "Adds filter to the OP filter chain"),
+    AP_INIT_TAKE1("OidfedSetOidConnectSigningKey", oidfed_cfg_set_oidc_private_key, NULL, RSRC_CONF,
+                  "Set the RelyingParty metadata signing key"),
+    AP_INIT_TAKE1("OidfedSetOidConnectSignatureAlgorithm", oidfged_cfg_set_oidc_signalg, NULL, RSRC_CONF,
+                  "Set the RelyingParty metadata signature algorithm"),
+    AP_INIT_TAKE1("OidfedSetOidFederationSigningKey", oidfed_cfg_set_fed_private_key, NULL, RSRC_CONF,
+                  "Set the Federation metadata signing key"),
+    AP_INIT_TAKE1("OidfedSetOidFederationSignatureAlgorithm", oidfged_cfg_set_fed_signalg, NULL, RSRC_CONF,
+                  "Set the RelyingParty metadata signature algorithm"),
     {NULL}
 };
 
