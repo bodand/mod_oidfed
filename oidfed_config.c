@@ -257,7 +257,7 @@ slurp_file(apr_pool_t* pool, const char* path, char** out_chars, size_t* out_cha
 
 void
 oidfed_worker_runtime_init(server_rec* sv, struct oidfed_config* config) {
-    ap_log_error(APLOG_MARK, APLOG_INFO, 0, sv, "initiating worker: %d", getpid());
+    ap_log_error(APLOG_MARK, APLOG_INFO, 0, sv, "(worker:%d) initiating worker", getpid());
     assert(config->worker_cfg.runtime == 0 && "Runtime already initialized");
 
     struct oidfed_worker_runtime* runtime =
@@ -376,7 +376,7 @@ oidfed_worker_runtime_init(server_rec* sv, struct oidfed_config* config) {
     // After success, set the owner pid; this can act as a sanity check that we did not break things
     // in a way that made httpd give this object to another worker somehow.
     runtime->owner_pid = getpid();
-    ap_log_error(APLOG_MARK, APLOG_INFO, 0, sv, "(worker:%d) initialized worker: %d, ready to work", getpid());
+    ap_log_error(APLOG_MARK, APLOG_INFO, 0, sv, "(worker:%d) initialized worker, ready to work", getpid());
 }
 
 void
