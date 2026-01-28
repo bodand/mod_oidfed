@@ -15,7 +15,7 @@
 #define CONFIG_LOGIN_URL_SIZE_MAX 256
 #define CONFIG_ENTITY_ID_MAX 1024
 #define CONFIG_FILTER_TYPE_MAX 64
-#define CONFIG_SIGNALG_MAX 5
+#define CONFIG_SIGNALG_MAX 6
 
 // Default configuration values //
 // Warning: They are initialized without length checks. Setting longer defaults
@@ -26,8 +26,8 @@
 #define CONFIG_DEFAULT_FEDERATION_KEY_FILE "./federation.key"
 #define CONFIG_DEFAULT_OIDC_KEY_FILE "./oidc.key"
 #define CONFIG_DEFAULT_LOGIN_PATH "/login"
-#define CONFIG_DEFAULT_FED_SIGNALG "ES521"
-#define CONFIG_DEFAULT_OIDC_SIGNALG "ES521"
+#define CONFIG_DEFAULT_FED_SIGNALG "ES512"
+#define CONFIG_DEFAULT_OIDC_SIGNALG "ES512"
 
 #define OIDFED_WELL_KNOWN_PATH "/.well-known/openid-federation"
 
@@ -38,6 +38,9 @@ struct oidfed_worker_runtime {
     pid_t owner_pid;
     /// The server object that created this runtime
     server_rec* server;
+
+    /// Relying party metadata
+
 
     /// The array of wrapper trust anchor entities
     struct oidfed_trust_anchor* trust_anchors;
@@ -162,7 +165,7 @@ oidfged_cfg_set_fed_signalg(cmd_parms* parms, void* mconfig, const char* w);
 
 // APACHE //
 
-extern module AP_MODULE_DECLARE_DATA oidfed_module;
+extern module AP_MODULE_DECLARE_DATA oidfed;
 
 static const command_rec oidfed_cmds[] = {
     AP_INIT_TAKE1("OidfedSetEntityId", oidfed_cfg_set_entity_id, NULL, RSRC_CONF,
@@ -175,8 +178,6 @@ static const command_rec oidfed_cmds[] = {
                   "Sets the path to redirect the user to when logging in"),
     AP_INIT_FLAG("OidfedWrapperLazyLoadSymbols", oidfed_cfg_wrap_lazy, NULL, RSRC_CONF,
                  "Lazily load symbols when loading the wrap library"),
-    AP_INIT_TAKE1("OidfedFederationSigningKeyFile", oidfed_cfg_set_fed_private_key, NULL, RSRC_CONF,
-                  "The private key with which to sign federation data"),
     AP_INIT_TAKE_ARGV("OidfedAddOpFilterChain", oidfed_add_op_filter_chain, NULL, RSRC_CONF,
                       "Adds filter to the OP filter chain"),
     AP_INIT_TAKE1("OidfedSetOidConnectSigningKey", oidfed_cfg_set_oidc_private_key, NULL, RSRC_CONF,

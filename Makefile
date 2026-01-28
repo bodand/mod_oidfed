@@ -1,16 +1,24 @@
 builddir=.
-top_srcdir=/etc/httpd
-top_builddir=/usr/lib64/httpd
+top_srcdir=../../../usr/share/apache/webroot
+top_builddir=../../../usr/share/apache/webroot
 
 SRC = oidfed_wrap_loader.c oidfed_config.c oidfed_req_handler.c
 OBJ = ${SRC:%.c=%.lo}
 SLO = ${SRC:.c=.slo}
 
-include /usr/lib64/httpd/build/special.mk
+include ${top_srcdir}/build/special.mk
 include deps.mk
 
 INCLUDES = -I deps/oidfed_wrap/lib/include -I src
 LIBS = ${OBJ}
+
+mod_oidfed.lo: oidfed_config.h oidfed_req_handler.h oidfed_wrap_loader.h
+oidfed_config.lo: oidfed_config.h
+oidfed_req_handler.lo: oidfed_config.h oidfed_wrap_loader.h oidfed_req_handler.h
+oidfed_wrap_loader.lo: oidfed_config.h oidfed_wrap_loader.h oidfed_wrap_loader.gen.h oidfed_wrap_loader.gen.c
+
+oidfed_wrap_loader.gen.c oidfed_wrap_loader.gen.h: make-loader.pl lib_builds
+	perl make-loader.pl deps/oidfed_wrap/lib/include/oidfed_wrap_lib.h
 
 APACHECTL=apachectl
 

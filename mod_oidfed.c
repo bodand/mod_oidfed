@@ -103,7 +103,7 @@ oidfed_merge_server_config(apr_pool_t* apr_pool, void* base_conf, void* new_conf
     return oidfed_merge_dir_config(apr_pool, base_conf, new_conf);
 }
 
-module AP_MODULE_DECLARE_DATA oidfed_module = {
+module AP_MODULE_DECLARE_DATA oidfed = {
     STANDARD20_MODULE_STUFF,
     oidfed_create_dir_config,
     oidfed_merge_dir_config,
@@ -116,7 +116,7 @@ module AP_MODULE_DECLARE_DATA oidfed_module = {
 void
 worker_init_handler(apr_pool_t* pchild, server_rec* s) {
     for (; s; s = s->next) {
-        struct oidfed_config* conf = ap_get_module_config(s->module_config, &oidfed_module);
+        struct oidfed_config* conf = ap_get_module_config(s->module_config, &oidfed);
         if (conf) {
             oidfed_worker_init(&conf->worker_cfg, s->process->pconf);
             oidfed_worker_runtime_init(s, conf);
@@ -129,7 +129,7 @@ oidfed_type_dispatcher(request_rec* r) {
     if (!r->uri) return DECLINED;
 
     const struct oidfed_config* config = ap_get_module_config(r->server->module_config,
-                                                              &oidfed_module);
+                                                              &oidfed);
     const char* login_url = str_empty(config->login_url) ? CONFIG_DEFAULT_LOGIN_PATH : config->login_url;
     if (strcmp(r->uri, OIDFED_WELL_KNOWN_PATH) == CMP_EQ) {
         r->handler = "oidfed";

@@ -19,12 +19,8 @@ oidfed_req_handler(request_rec* r) {
     if (strcmp(r->handler, "oidfed") != CMP_EQ) return DECLINED;
     if (!r->uri) return DECLINED;
 
-    fprintf(stderr, "yyyyy\n");
     const struct oidfed_config* config = ap_get_module_config(r->server->module_config,
-                                                              &oidfed_module);
-
-    fprintf(stderr, "yyyyy1 %p\n", (void*) config);
-    fprintf(stderr, "yyyyy2 %p\n", (void*) config->worker_cfg.runtime);
+                                                              &oidfed);
 
     assert(config->worker_cfg.runtime->owner_pid == getpid() && "mismatched owner pid");
 
@@ -44,7 +40,6 @@ req_login_ui_handler(const struct oidfed_config* config, request_rec* r) {
 
     ap_rputs("<html><body><h1>Trust-anchors:</h1><ul>", r);
 
-    fprintf(stderr, "<><> %zu", rt->trust_anchors_sz);
     for (size_t i = 0; i < rt->trust_anchors_sz; i++) {
         const struct oidfed_trust_anchor trust_anchor = rt->trust_anchors[i];
 
@@ -52,7 +47,7 @@ req_login_ui_handler(const struct oidfed_config* config, request_rec* r) {
 
         struct oidfed_collected_entity* entities = NULL;
         size_t entities_sz = 0;
-        oidfedCollectorCollectVerifiedEntitiesWithFilter(trust_anchor,
+        oidfedCollectorCollectVerifiedEntitiesWithFilter(r, trust_anchor,
                                                          &rt->collector,
                                                          rt->filter,
                                                          &entities,
@@ -61,18 +56,18 @@ req_login_ui_handler(const struct oidfed_config* config, request_rec* r) {
         for (size_t j = 0; j < entities_sz; j++) {
             bool printed = false;
             struct oidfed_collected_entity_ui_enumerator enumerator =
-                    oidfedCollectedEntityEnumerateUi(entities[j]);
-            while (oidfedCollectedEntityNextUi(&enumerator)) {
-                struct oidfed_ui_info ui = oidfedCollectedEntityGetUiValue(&enumerator);
+                    oidfedCollectedEntityEnumerateUi(r, entities[j]);
+            while (oidfedCollectedEntityNextUi(r, &enumerator)) {
+                struct oidfed_ui_info ui = oidfedCollectedEntityGetUiValue(r, &enumerator);
                 ap_rprintf(r, "<li>%s (<a href=\"%s/.well-known/openid-federation\">%s</a>)</li>",
                            ui.display_name,
                            entities[j].entity_id,
                            entities[j].entity_id
                 );
                 printed = true;
-                oidfedUiInfoDestroy(&ui);
+                oidfedUiInfoDestroy(r, &ui);
             }
-            oidfedCollectedEntityFinishUi(&enumerator);
+            oidfedCollectedEntityFinishUi(r, &enumerator);
 
             if (!printed) {
                 ap_rprintf(r, "<li><a href=\"%s/.well-known/openid-federation\">%s</a></li>",
@@ -80,7 +75,7 @@ req_login_ui_handler(const struct oidfed_config* config, request_rec* r) {
                            entities[j].entity_id);
             }
 
-            oidfedCollectedEntityDestroy(&entities[j]);
+            oidfedCollectedEntityDestroy(r, &entities[j]);
         }
 
         free(entities);

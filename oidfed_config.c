@@ -20,41 +20,41 @@ config_filter_append(server_rec* sv,
 
     uintptr_t filter_handle = 0;
     if (strcmp(filter_cfg->type, "op") == CMP_EQ)
-        filter_handle = OIFMayLoad_oidfedEntityCollectionFilterOPs_server(sv);
+        filter_handle = oidfedEntityCollectionFilterOPs(sv);
     if (strcmp(filter_cfg->type, "explicit") == CMP_EQ)
-        filter_handle = OIFMayLoad_oidfedEntityCollectionFilterOPSupportsExplicitRegistration_server(sv,
+        filter_handle = oidfedEntityCollectionFilterOPSupportsExplicitRegistration(sv,
             cfg->trust_anchors,
             cfg->trust_anchors_sz);
     if (strcmp(filter_cfg->type, "auto") == CMP_EQ)
-        filter_handle = OIFMayLoad_oidfedEntityCollectionFilterOPSupportsAutomaticRegistration_server(sv,
+        filter_handle = oidfedEntityCollectionFilterOPSupportsAutomaticRegistration(sv,
             cfg->trust_anchors,
             cfg->trust_anchors_sz);
     if (strcmp(filter_cfg->type, "grants") == CMP_EQ)
-        filter_handle = OIFMayLoad_oidfedEntityCollectionFilterOPSupportedGrantTypesIncludes_server(sv,
+        filter_handle = oidfedEntityCollectionFilterOPSupportedGrantTypesIncludes(sv,
             cfg->trust_anchors,
             cfg->trust_anchors_sz,
             filter_cfg->arguments,
             filter_cfg->arguments_sz);
     if (strcmp(filter_cfg->type, "scopes") == CMP_EQ)
-        filter_handle = OIFMayLoad_oidfedEntityCollectionFilterOPSupportedScopesIncludes_server(sv,
+        filter_handle = oidfedEntityCollectionFilterOPSupportedScopesIncludes(sv,
             cfg->trust_anchors,
             cfg->trust_anchors_sz,
             filter_cfg->arguments,
             filter_cfg->arguments_sz);
 
     assert(filter_handle > 0 && "unknown filter config type");
-    OIFMayLoad_oidfedCollectionFilterAppend_server(sv, filter, filter_handle);
+    oidfedCollectionFilterAppend(sv, filter, filter_handle);
 }
 
 const char*
 oidfed_cfg_wrap_lazy(cmd_parms* parms, void* mconfig, int on) {
-    struct oidfed_config* const config = ap_get_module_config(parms->server->module_config, &oidfed_module);
+    struct oidfed_config* const config = ap_get_module_config(parms->server->module_config, &oidfed);
     config->worker_cfg.lazy_load_symbols = (bool) on;
     return NULL;
 }
 
 const char* oidfed_cfg_login_url(cmd_parms* parms, void* cfg, const char* url) {
-    struct oidfed_config* const config = ap_get_module_config(parms->server->module_config, &oidfed_module);
+    struct oidfed_config* const config = ap_get_module_config(parms->server->module_config, &oidfed);
     if (url[0] != '/') return "Login path must be absolute";
 
     if (strlcpy(config->login_url, url, CONFIG_LOGIN_URL_SIZE_MAX) > CONFIG_LOGIN_URL_SIZE_MAX)
@@ -91,7 +91,7 @@ oidfed_cfg_set_fed_private_key(cmd_parms* parms, void* cfg, const char* key_file
     const char* err = validate_key_file_perms(parms->temp_pool, key_file);
     if (err) return err;
 
-    struct oidfed_config* const config = ap_get_module_config(parms->server->module_config, &oidfed_module);
+    struct oidfed_config* const config = ap_get_module_config(parms->server->module_config, &oidfed);
     if (strlcpy(config->federation_signing_key_file, key_file,
                 sizeof(config->federation_signing_key_file)) >= sizeof(config->federation_signing_key_file))
         return "Federation signing key file path too long";
@@ -104,7 +104,7 @@ oidfed_cfg_set_oidc_private_key(cmd_parms* parms, void* mconfig, const char* key
     const char* err = validate_key_file_perms(parms->temp_pool, key_file);
     if (err) return err;
 
-    struct oidfed_config* const config = ap_get_module_config(parms->server->module_config, &oidfed_module);
+    struct oidfed_config* const config = ap_get_module_config(parms->server->module_config, &oidfed);
     if (strlcpy(config->oidc_signing_key_file, key_file,
                 sizeof(config->oidc_signing_key_file)) >= sizeof(config->oidc_signing_key_file))
         return "Federation signing key file path too long";
@@ -114,7 +114,7 @@ oidfed_cfg_set_oidc_private_key(cmd_parms* parms, void* mconfig, const char* key
 
 const char*
 oidfged_cfg_set_oidc_signalg(cmd_parms* parms, void* mconfig, const char* w) {
-    struct oidfed_config* const cfg = ap_get_module_config(parms->server->module_config, &oidfed_module);
+    struct oidfed_config* const cfg = ap_get_module_config(parms->server->module_config, &oidfed);
     if (strlcpy(cfg->oidc_signing_alg, w, sizeof(cfg->oidc_signing_alg)) >= sizeof(cfg->oidc_signing_alg))
         return "OIDC signature algorithm too long";
 
@@ -123,7 +123,7 @@ oidfged_cfg_set_oidc_signalg(cmd_parms* parms, void* mconfig, const char* w) {
 
 const char*
 oidfged_cfg_set_fed_signalg(cmd_parms* parms, void* mconfig, const char* w) {
-    struct oidfed_config* const cfg = ap_get_module_config(parms->server->module_config, &oidfed_module);
+    struct oidfed_config* const cfg = ap_get_module_config(parms->server->module_config, &oidfed);
     if (strlcpy(cfg->federation_signing_alg, w, sizeof(cfg->federation_signing_alg)) >=
         sizeof(cfg->federation_signing_alg))
         return "Federation signature algorithm too long";
@@ -138,7 +138,7 @@ str_empty(const char* str) {
 
 const char*
 oidfed_cfg_set_entity_id(cmd_parms* parms, void* mconfig, const char* w) {
-    struct oidfed_config* const cfg = ap_get_module_config(parms->server->module_config, &oidfed_module);
+    struct oidfed_config* const cfg = ap_get_module_config(parms->server->module_config, &oidfed);
     if (!str_empty(cfg->entity_id))
         ap_log_error(APLOG_MARK, APLOG_WARNING, 0, parms->server,
                  "entity id set multiple times: was %s, now: %s", cfg->entity_id, w);
@@ -151,7 +151,7 @@ oidfed_cfg_set_entity_id(cmd_parms* parms, void* mconfig, const char* w) {
 
 const char*
 oidfed_cfg_add_authority_hint(cmd_parms* parms, void* mconfig, const char* w) {
-    struct oidfed_config* const cfg = ap_get_module_config(parms->server->module_config, &oidfed_module);
+    struct oidfed_config* const cfg = ap_get_module_config(parms->server->module_config, &oidfed);
     if (cfg->authority_hints_sz == CONFIG_AUTHORITY_HINTS_MAX) return "Too many authority hints in configuration";
 
     cfg->authority_hints[cfg->authority_hints_sz++] = apr_pstrdup(parms->pool, w);
@@ -173,7 +173,7 @@ oidfed_add_op_filter_chain(cmd_parms* parms, void* mconfig, int argc, char* cons
         return NULL;
     }
 
-    struct oidfed_config* const cfg = ap_get_module_config(parms->server->module_config, &oidfed_module);
+    struct oidfed_config* const cfg = ap_get_module_config(parms->server->module_config, &oidfed);
     struct oidfed_filter_config** new_filter = filter_list_end(cfg);
     if (strcmp(argv[0], "op") == CMP_EQ
         || strcmp(argv[0], "explicit") == CMP_EQ
@@ -201,7 +201,7 @@ oidfed_add_op_filter_chain(cmd_parms* parms, void* mconfig, int argc, char* cons
 
 const char*
 oidfed_cfg_add_trust_anchor(cmd_parms* parms, void* cfg, const char* entity_id) {
-    struct oidfed_config* const config = ap_get_module_config(parms->server->module_config, &oidfed_module);
+    struct oidfed_config* const config = ap_get_module_config(parms->server->module_config, &oidfed);
     if (config->trust_anchors_sz == CONFIG_TRUST_ANCHORS_MAX) return "Too many trust anchors in configuration";
 
     config->trust_anchors[config->trust_anchors_sz++] = apr_pstrdup(parms->pool, entity_id);
@@ -212,10 +212,10 @@ oidfed_cfg_add_trust_anchor(cmd_parms* parms, void* cfg, const char* entity_id) 
 static apr_status_t
 oidfed_worker_runtime_uninit(void* raw) {
     struct oidfed_worker_runtime* rt = raw;
-    OIFMayLoad_oidfedCollectionFilterDestroy_server(rt->server, &rt->filter);
-    OIFMayLoad_oidfedCollectorDestroy_server(rt->server, &rt->collector);
+    oidfedCollectionFilterDestroy(rt->server, &rt->filter);
+    oidfedCollectorDestroy(rt->server, &rt->collector);
     for (size_t i = 0; i < rt->trust_anchors_sz; ++i) {
-        OIFMayLoad_oidfedTrustAnchorDestroy_server(rt->server, &rt->trust_anchors[i]);
+        oidfedTrustAnchorDestroy(rt->server, &rt->trust_anchors[i]);
     }
     return APR_SUCCESS;
 }
@@ -257,6 +257,7 @@ slurp_file(apr_pool_t* pool, const char* path, char** out_chars, size_t* out_cha
 
 void
 oidfed_worker_runtime_init(server_rec* sv, struct oidfed_config* config) {
+    ap_log_error(APLOG_MARK, APLOG_INFO, 0, sv, "initiating worker: %d", getpid());
     assert(config->worker_cfg.runtime == 0 && "Runtime already initialized");
 
     struct oidfed_worker_runtime* runtime =
@@ -270,15 +271,15 @@ oidfed_worker_runtime_init(server_rec* sv, struct oidfed_config* config) {
                                          config->trust_anchors_sz * sizeof(struct oidfed_trust_anchor));
     for (size_t i = 0; i < config->trust_anchors_sz; ++i) {
         const char* trust_anchor_id = config->trust_anchors[i];
-        runtime->trust_anchors[i] = OIFMayLoad_oidfedTrustAnchorCreate_server(sv, (char*) trust_anchor_id);
+        runtime->trust_anchors[i] = oidfedTrustAnchorCreate(sv, (char*) trust_anchor_id);
     }
     runtime->trust_anchors_sz = config->trust_anchors_sz;
 
-    runtime->collector = OIFMayLoad_oidfedCollectorCreateSmart_server(sv,
+    runtime->collector = oidfedCollectorCreateSmart(sv,
                                                                       runtime->trust_anchors,
                                                                       runtime->trust_anchors_sz);
 
-    runtime->filter = OIFMayLoad_oidfedEmptyCollectionFilter_server(sv);
+    runtime->filter = oidfedEmptyCollectionFilter(sv);
     for (const struct oidfed_filter_config* it = config->filters;
          it;
          it = it->next) {
@@ -289,7 +290,7 @@ oidfed_worker_runtime_init(server_rec* sv, struct oidfed_config* config) {
     char* chars = NULL;
     size_t chars_sz = 0;
     slurp_file(sv->process->pool, config->federation_signing_key_file, &chars, &chars_sz);
-    const struct oidfed_signer fed_signer = OIFMayLoad_oidfedSignerCreateFromPEM_server(sv, chars, chars_sz, &errc);
+    const struct oidfed_signer fed_signer = oidfedSignerCreateFromPEM(sv, chars, chars_sz, &errc);
     explicit_bzero(chars, chars_sz);
     if (errc != 0) {
         ap_log_error(APLOG_MARK, APLOG_ERR, 0, sv, "Failed to load federation signing key: error code %d", errc);
@@ -299,24 +300,52 @@ oidfed_worker_runtime_init(server_rec* sv, struct oidfed_config* config) {
     chars = NULL;
     chars_sz = 0;
     slurp_file(sv->process->pool, config->oidc_signing_key_file, &chars, &chars_sz);
-    const struct oidfed_signer oidc_signer = OIFMayLoad_oidfedSignerCreateFromPEM_server(sv, chars, chars_sz, &errc);
+    const struct oidfed_signer oidc_signer = oidfedSignerCreateFromPEM(sv, chars, chars_sz, &errc);
     explicit_bzero(chars, chars_sz);
     if (errc != 0) {
         ap_log_error(APLOG_MARK, APLOG_ERR, 0, sv, "Failed to load oidc signing key: error code %d", errc);
         return;
     }
 
-    runtime->federation_key_storage = OIFMayLoad_oidfedSingleKeyStorageCreate_server(
+    ap_log_error(APLOG_MARK, APLOG_INFO, 0, sv, "(worker:%d) finding signing algorithm for federation: %s",
+                 getpid(),
+                 config->federation_signing_alg);
+    bool succ = false;
+    runtime->federation_signing_alg = oidfedSignatureAlgorithmGet(
+        sv, config->federation_signing_alg, &succ);
+    if (!succ) {
+        ap_log_error(APLOG_MARK, APLOG_ERR, 0, sv, "Failed to load oidc signing key: unknown signature algorithm: %s",
+                     config->federation_signing_alg);
+        return;
+    }
+
+    ap_log_error(APLOG_MARK, APLOG_INFO, 0, sv, "(worker:%d) finding signing algorithm for oidc: %s",
+                 getpid(),
+                 config->oidc_signing_alg);
+    succ = false;
+    runtime->oidc_signing_alg = oidfedSignatureAlgorithmGet(sv, config->oidc_signing_alg, &succ);
+    if (!succ) {
+        ap_log_error(APLOG_MARK, APLOG_ERR, 0, sv, "Failed to load oidc signing key: unknown signature algorithm: %s",
+                     config->oidc_signing_alg);
+        return;
+    }
+
+    ap_log_error(APLOG_MARK, APLOG_INFO, 0, sv, "(worker:%d) creating key storage for federation", getpid());
+    runtime->federation_key_storage = oidfedSingleKeyStorageCreate(
         sv, fed_signer, runtime->federation_signing_alg);
+    ap_log_error(APLOG_MARK, APLOG_INFO, 0, sv, "(worker:%d) creating signer for federation", getpid());
     runtime->federation_signer = oidfedSingleKeyStorageAsVersatileSigner(&runtime->federation_key_storage);
 
-    runtime->oidc_key_storage = OIFMayLoad_oidfedSingleKeyStorageCreate_server(
+    ap_log_error(APLOG_MARK, APLOG_INFO, 0, sv, "(worker:%d) creating key storage for oidc", getpid());
+    runtime->oidc_key_storage = oidfedSingleKeyStorageCreate(
         sv, oidc_signer, runtime->oidc_signing_alg);
+    ap_log_error(APLOG_MARK, APLOG_INFO, 0, sv, "(worker:%d) creating signer for oidc", getpid());
     runtime->oidc_signer = oidfedSingleKeyStorageAsVersatileSigner(&runtime->oidc_key_storage);
 
     // After success, set the owner pid; this can act as a sanity check that we did not break things
     // in a way that made httpd give this object to another worker somehow.
     runtime->owner_pid = getpid();
+    ap_log_error(APLOG_MARK, APLOG_INFO, 0, sv, "initialized worker: %d, ready to work", getpid());
 }
 
 void

@@ -1,6 +1,6 @@
 ## Makefile to pull and build oidfed_wrap locally
 #
-OIDFED_WRAP_VERSION := 3d8fe1cb819b2d5e45309cd31864891204639bcd
+OIDFED_WRAP_VERSION := eb2434346e71300f8294de58d9becfb219f39c64
 
 .PHONY: ensure checkout build install clean
 ensure: checkout build install
