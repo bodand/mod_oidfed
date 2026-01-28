@@ -40,7 +40,9 @@ struct oidfed_worker_runtime {
     server_rec* server;
 
     /// Relying party metadata
-
+    struct oidfed_metadata rp_metadata;
+    /// Federation Leaf entity
+    struct oidfed_federation_leaf leaf;
 
     /// The array of wrapper trust anchor entities
     struct oidfed_trust_anchor* trust_anchors;

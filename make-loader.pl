@@ -54,8 +54,8 @@ while ((local $_ = <$wrap_fh>)) {
 
     say $loader_h_fh <<~"EOF";
     #define $fn(ctx, ...) _Generic((ctx),       \\
-        request_rec*: OIFMayLoad_${fn}_request, \\
-        server_rec*: OIFMayLoad_${fn}_server    \\
+          request_rec*: OIFMayLoad_${fn}_request, \\
+          server_rec*: OIFMayLoad_${fn}_server    \\
         )(ctx __VA_OPT__(,) __VA_ARGS__)
     $ret OIFMayLoad_${fn}_request(request_rec* wrap_request_ctx$need_comma$args);
     $ret OIFMayLoad_${fn}_server(server_rec* warp_server_ctx$need_comma$args);

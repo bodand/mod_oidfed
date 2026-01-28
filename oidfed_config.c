@@ -37,10 +37,10 @@ config_filter_append(server_rec* sv,
             filter_cfg->arguments_sz);
     if (strcmp(filter_cfg->type, "scopes") == CMP_EQ)
         filter_handle = oidfedEntityCollectionFilterOPSupportedScopesIncludes(sv,
-            cfg->trust_anchors,
-            cfg->trust_anchors_sz,
-            filter_cfg->arguments,
-            filter_cfg->arguments_sz);
+                                                                              cfg->trust_anchors,
+                                                                              cfg->trust_anchors_sz,
+                                                                              filter_cfg->arguments,
+                                                                              filter_cfg->arguments_sz);
 
     assert(filter_handle > 0 && "unknown filter config type");
     oidfedCollectionFilterAppend(sv, filter, filter_handle);
@@ -276,8 +276,8 @@ oidfed_worker_runtime_init(server_rec* sv, struct oidfed_config* config) {
     runtime->trust_anchors_sz = config->trust_anchors_sz;
 
     runtime->collector = oidfedCollectorCreateSmart(sv,
-                                                                      runtime->trust_anchors,
-                                                                      runtime->trust_anchors_sz);
+                                                    runtime->trust_anchors,
+                                                    runtime->trust_anchors_sz);
 
     runtime->filter = oidfedEmptyCollectionFilter(sv);
     for (const struct oidfed_filter_config* it = config->filters;
@@ -342,10 +342,41 @@ oidfed_worker_runtime_init(server_rec* sv, struct oidfed_config* config) {
     ap_log_error(APLOG_MARK, APLOG_INFO, 0, sv, "(worker:%d) creating signer for oidc", getpid());
     runtime->oidc_signer = oidfedSingleKeyStorageAsVersatileSigner(&runtime->oidc_key_storage);
 
+    ap_log_error(APLOG_MARK, APLOG_INFO, 0, sv, "(worker:%d) creating entity metadata objects", getpid());
+    runtime->rp_metadata = oidfedMetadataCreate(sv);
+    struct oidfed_openid_relying_party_metadata rp = oidfedOpenIDRelyingPartyMetadataCreate(sv);
+    oidfedOpenIDRelyingPartyMetadataSetApplicationType(sv, rp, "web");
+    oidfedOpenIDRelyingPartyMetadataSetClientName(sv, rp, "apache-client");
+    oidfedOpenIDRelyingPartyMetadataSetOrganizationName(sv, rp, "demo");
+    oidfedOpenIDRelyingPartyMetadataSetClientRegistrationTypes(sv, rp, &(char*){(char*)"automatic"}, 1);
+    oidfedOpenIDRelyingPartyMetadataSetRedirectUris(sv, rp, &(char*){(char*)"https://localhost/oidc/rp/callback"}, 1);
+    oidfedOpenIDRelyingPartyMetadataSetResponseTypes(sv, rp, &(char*){(char*)"code"}, 1);
+    oidfedOpenIDRelyingPartyMetadataSetGrantTypes(sv, rp, &(char*){(char*)"authorization_code"}, 1);
+    oidfedOpenIDRelyingPartyMetadataSetLogoURI(sv, rp, "https://placehold.co/300x200");
+    oidfedOpenIDRelyingPartyMetadataSetJWKSFromKeyStorage(sv, rp, runtime->federation_key_storage);
+    oidfedMetadataSetRPMetadata(sv, runtime->rp_metadata, rp.impl);
+
+    struct oidfed_federation_entity_metadata fe = oidfedFederationEntityMetadataCreate(sv);
+    oidfedFederationEntityMetadataSetLogoURI(sv, fe, "https://placehold.co/300x200");
+    oidfedFederationEntityMetadataSetOrganizationName(sv, fe, "demo");
+    oidfedMetadataSetFederationEntityMetadata(sv, runtime->rp_metadata, fe.impl);
+
+    runtime->leaf = oidfedFederationLeafCreate(sv, config->entity_id,
+        0, 0,
+        runtime->trust_anchors, runtime->trust_anchors_sz,
+        runtime->federation_signer,
+        runtime->oidc_signer,
+        runtime->rp_metadata,
+        &errc);
+    if (errc != 0) {
+        ap_log_error(APLOG_MARK, APLOG_ERR, 0, sv, "Failed to create federation leaf: error code %d", errc);
+        return;
+    }
+
     // After success, set the owner pid; this can act as a sanity check that we did not break things
     // in a way that made httpd give this object to another worker somehow.
     runtime->owner_pid = getpid();
-    ap_log_error(APLOG_MARK, APLOG_INFO, 0, sv, "initialized worker: %d, ready to work", getpid());
+    ap_log_error(APLOG_MARK, APLOG_INFO, 0, sv, "(worker:%d) initialized worker: %d, ready to work", getpid());
 }
 
 void

@@ -2,6 +2,7 @@
 #include <assert.h>
 #include <httpd.h>
 #include <http_config.h>
+#include <http_log.h>
 #include <http_protocol.h>
 
 #include <oidfed_config.h>
@@ -88,5 +89,27 @@ req_login_ui_handler(const struct oidfed_config* config, request_rec* r) {
 
 int
 req_well_known_handler(const struct oidfed_config* config, request_rec* r) {
+    struct oidfed_worker_runtime* rt = config->worker_cfg.runtime;
+
+    int errc = 0;
+    char* bytes;
+    size_t bytes_sz = 0;
+
+    ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "Producing JWT: %lu", rt->leaf.impl);
+    if ((errc = oidfedFederationLeafGetAsJWT(r, rt->leaf, &bytes, &bytes_sz)) != 0) {
+        ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "Failed to produce JWT: error code %d", errc);
+        return HTTP_INTERNAL_SERVER_ERROR;
+    }
+
+    ap_set_content_type(r, "text/plain"); // TODO
+
+    while (bytes_sz > INT_MAX) {
+        ap_rwrite(bytes, INT_MAX, r);
+        bytes += INT_MAX;
+        bytes_sz -= INT_MAX;
+    }
+    ap_rwrite(bytes, (int)bytes_sz, r);
+
+    free(bytes);
     return OK;
 }

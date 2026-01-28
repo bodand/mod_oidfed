@@ -12,13 +12,13 @@ include deps.mk
 INCLUDES = -I deps/oidfed_wrap/lib/include -I src
 LIBS = ${OBJ}
 
-mod_oidfed.lo: oidfed_config.h oidfed_req_handler.h oidfed_wrap_loader.h
-oidfed_config.lo: oidfed_config.h
-oidfed_req_handler.lo: oidfed_config.h oidfed_wrap_loader.h oidfed_req_handler.h
-oidfed_wrap_loader.lo: oidfed_config.h oidfed_wrap_loader.h oidfed_wrap_loader.gen.h oidfed_wrap_loader.gen.c
+mod_oidfed.slo: oidfed_config.h oidfed_req_handler.h oidfed_wrap_loader.h
+oidfed_config.slo: oidfed_config.h
+oidfed_req_handler.slo: oidfed_config.h oidfed_wrap_loader.h oidfed_req_handler.h
+oidfed_wrap_loader.slo: oidfed_config.h oidfed_wrap_loader.h oidfed_wrap_loader.gen.h oidfed_wrap_loader.gen.c
 
 oidfed_wrap_loader.gen.c oidfed_wrap_loader.gen.h: make-loader.pl lib_builds
-	perl make-loader.pl deps/oidfed_wrap/lib/include/oidfed_wrap_lib.h
+	exec perl make-loader.pl deps/oidfed_wrap/lib/include/oidfed_wrap_lib.h
 
 APACHECTL=apachectl
 
