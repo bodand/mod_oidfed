@@ -16,6 +16,8 @@
 #define CONFIG_ENTITY_ID_MAX 1024
 #define CONFIG_FILTER_TYPE_MAX 64
 #define CONFIG_SIGNALG_MAX 6
+#define CONFIG_METADATA_STR_MAX 128
+#define CONFIG_METADATA_ARRAY_MAX 100
 
 // Default configuration values //
 // Warning: They are initialized without length checks. Setting longer defaults
@@ -28,6 +30,10 @@
 #define CONFIG_DEFAULT_LOGIN_PATH "/login"
 #define CONFIG_DEFAULT_FED_SIGNALG "ES512"
 #define CONFIG_DEFAULT_OIDC_SIGNALG "ES512"
+
+#define CONFIG_DEFAULT_METADATA_URL ""
+#define CONFIG_DEFAULT_METADATA_DIGEST ""
+#define CONFIG_DEFAULT_METADATA_DIGEST_ALG "sha256"
 
 #define OIDFED_WELL_KNOWN_PATH "/.well-known/openid-federation"
 
@@ -93,6 +99,26 @@ struct oidfed_worker_config {
     bool lazy_load_symbols;
 };
 
+struct oidfed_metadata_config {
+    /// RP Metadata URL
+    char rp_metadata_url[CONFIG_METADATA_STR_MAX];
+    /// RP Metadata Digest
+    char rp_metadata_digest[CONFIG_METADATA_STR_MAX];
+    /// RP Metadata Digest Algorithm
+    char rp_metadata_digest_alg[CONFIG_METADATA_STR_MAX];
+
+    /// Federation Entity Metadata URL
+    char fe_metadata_url[CONFIG_METADATA_STR_MAX];
+    /// Federation Entity Metadata Digest
+    char fe_metadata_digest[CONFIG_METADATA_STR_MAX];
+    /// Federation Entity Metadata Digest Algorithm
+    char fe_metadata_digest_alg[CONFIG_METADATA_STR_MAX];
+
+    /// RP Redirect URIs
+    char* rp_redirect_uris[CONFIG_METADATA_ARRAY_MAX];
+    size_t rp_redirect_uris_sz;
+};
+
 struct oidfed_config {
     /* Module specific configuration */
     /// Path of the URL where the user can select where to log in
@@ -124,6 +150,9 @@ struct oidfed_config {
     char oidc_signing_key_file[APR_PATH_MAX];
     /// Signature algorithm to use for replying-party metadata signing
     char oidc_signing_alg[CONFIG_SIGNALG_MAX];
+
+    /// Nested metadata configuration
+    struct oidfed_metadata_config metadata;
 };
 
 void
@@ -165,6 +194,27 @@ oidfged_cfg_set_oidc_signalg(cmd_parms* parms, void* mconfig, const char* w);
 const char*
 oidfged_cfg_set_fed_signalg(cmd_parms* parms, void* mconfig, const char* w);
 
+const char*
+oidfed_cfg_set_rp_metadata_url(cmd_parms* parms, void* mconfig, const char* w);
+
+const char*
+oidfed_cfg_set_rp_metadata_digest(cmd_parms* parms, void* mconfig, const char* w);
+
+const char*
+oidfed_cfg_set_rp_metadata_digest_alg(cmd_parms* parms, void* mconfig, const char* w);
+
+const char*
+oidfed_cfg_set_fe_metadata_url(cmd_parms* parms, void* mconfig, const char* w);
+
+const char*
+oidfed_cfg_set_fe_metadata_digest(cmd_parms* parms, void* mconfig, const char* w);
+
+const char*
+oidfed_cfg_set_fe_metadata_digest_alg(cmd_parms* parms, void* mconfig, const char* w);
+
+const char*
+oidfed_cfg_add_rp_redirect_uri(cmd_parms* parms, void* mconfig, const char* w);
+
 // APACHE //
 
 extern module AP_MODULE_DECLARE_DATA oidfed;
@@ -190,6 +240,20 @@ static const command_rec oidfed_cmds[] = {
                   "Set the Federation metadata signing key"),
     AP_INIT_TAKE1("OidfedSetOidFederationSignatureAlgorithm", oidfged_cfg_set_fed_signalg, NULL, RSRC_CONF,
                   "Set the RelyingParty metadata signature algorithm"),
+    AP_INIT_TAKE1("OidfedSetRPMetadataURL", oidfed_cfg_set_rp_metadata_url, NULL, RSRC_CONF,
+                  "Set the Relying Party Metadata URL"),
+    AP_INIT_TAKE1("OidfedSetRPMetadataDigest", oidfed_cfg_set_rp_metadata_digest, NULL, RSRC_CONF,
+                  "Set the Relying Party Metadata Digest"),
+    AP_INIT_TAKE1("OidfedSetRPMetadataDigestAlgorithm", oidfed_cfg_set_rp_metadata_digest_alg, NULL, RSRC_CONF,
+                  "Set the Relying Party Metadata Digest Algorithm"),
+    AP_INIT_TAKE1("OidfedSetFEMetadataURL", oidfed_cfg_set_fe_metadata_url, NULL, RSRC_CONF,
+                  "Set the Federation Entity Metadata URL"),
+    AP_INIT_TAKE1("OidfedSetFEMetadataDigest", oidfed_cfg_set_fe_metadata_digest, NULL, RSRC_CONF,
+                  "Set the Federation Entity Metadata Digest"),
+    AP_INIT_TAKE1("OidfedSetFEMetadataDigestAlgorithm", oidfed_cfg_set_fe_metadata_digest_alg, NULL, RSRC_CONF,
+                  "Set the Federation Entity Metadata Digest Algorithm"),
+    AP_INIT_TAKE1("OidfedAddRPRedirectURI", oidfed_cfg_add_rp_redirect_uri, NULL, RSRC_CONF,
+                  "Add a redirect URI to the Relying Party metadata"),
     {NULL}
 };
 

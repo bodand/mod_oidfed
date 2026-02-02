@@ -209,6 +209,76 @@ oidfed_cfg_add_trust_anchor(cmd_parms* parms, void* cfg, const char* entity_id) 
     return NULL;
 }
 
+const char*
+oidfed_cfg_set_rp_metadata_url(cmd_parms* parms, void* mconfig, const char* w) {
+    struct oidfed_config* const cfg = ap_get_module_config(parms->server->module_config, &oidfed);
+    if (strlen(w) >= CONFIG_METADATA_STR_MAX) {
+        return apr_psprintf(parms->pool, "OidfedSetRPMetadataURL: value too long (max %d)", CONFIG_METADATA_STR_MAX - 1);
+    }
+    strcpy(cfg->metadata.rp_metadata_url, w);
+    return NULL;
+}
+
+const char*
+oidfed_cfg_set_rp_metadata_digest(cmd_parms* parms, void* mconfig, const char* w) {
+    struct oidfed_config* const cfg = ap_get_module_config(parms->server->module_config, &oidfed);
+    if (strlen(w) >= CONFIG_METADATA_STR_MAX) {
+        return apr_psprintf(parms->pool, "OidfedSetRPMetadataDigest: value too long (max %d)", CONFIG_METADATA_STR_MAX - 1);
+    }
+    strcpy(cfg->metadata.rp_metadata_digest, w);
+    return NULL;
+}
+
+const char*
+oidfed_cfg_set_rp_metadata_digest_alg(cmd_parms* parms, void* mconfig, const char* w) {
+    struct oidfed_config* const cfg = ap_get_module_config(parms->server->module_config, &oidfed);
+    if (strlen(w) >= CONFIG_METADATA_STR_MAX) {
+        return apr_psprintf(parms->pool, "OidfedSetRPMetadataDigestAlgorithm: value too long (max %d)", CONFIG_METADATA_STR_MAX - 1);
+    }
+    strcpy(cfg->metadata.rp_metadata_digest_alg, w);
+    return NULL;
+}
+
+const char*
+oidfed_cfg_set_fe_metadata_url(cmd_parms* parms, void* mconfig, const char* w) {
+    struct oidfed_config* const cfg = ap_get_module_config(parms->server->module_config, &oidfed);
+    if (strlen(w) >= CONFIG_METADATA_STR_MAX) {
+        return apr_psprintf(parms->pool, "OidfedSetFEMetadataURL: value too long (max %d)", CONFIG_METADATA_STR_MAX - 1);
+    }
+    strcpy(cfg->metadata.fe_metadata_url, w);
+    return NULL;
+}
+
+const char*
+oidfed_cfg_set_fe_metadata_digest(cmd_parms* parms, void* mconfig, const char* w) {
+    struct oidfed_config* const cfg = ap_get_module_config(parms->server->module_config, &oidfed);
+    if (strlen(w) >= CONFIG_METADATA_STR_MAX) {
+        return apr_psprintf(parms->pool, "OidfedSetFEMetadataDigest: value too long (max %d)", CONFIG_METADATA_STR_MAX - 1);
+    }
+    strcpy(cfg->metadata.fe_metadata_digest, w);
+    return NULL;
+}
+
+const char*
+oidfed_cfg_set_fe_metadata_digest_alg(cmd_parms* parms, void* mconfig, const char* w) {
+    struct oidfed_config* const cfg = ap_get_module_config(parms->server->module_config, &oidfed);
+    if (strlen(w) >= CONFIG_METADATA_STR_MAX) {
+        return apr_psprintf(parms->pool, "OidfedSetFEMetadataDigestAlgorithm: value too long (max %d)", CONFIG_METADATA_STR_MAX - 1);
+    }
+    strcpy(cfg->metadata.fe_metadata_digest_alg, w);
+    return NULL;
+}
+
+const char*
+oidfed_cfg_add_rp_redirect_uri(cmd_parms* parms, void* mconfig, const char* w) {
+    struct oidfed_config* const cfg = ap_get_module_config(parms->server->module_config, &oidfed);
+    if (cfg->metadata.rp_redirect_uris_sz >= CONFIG_METADATA_ARRAY_MAX) {
+        return "OidfedAddRPRedirectURI: too many redirect URIs";
+    }
+    cfg->metadata.rp_redirect_uris[cfg->metadata.rp_redirect_uris_sz++] = apr_pstrdup(parms->pool, w);
+    return NULL;
+}
+
 static apr_status_t
 oidfed_worker_runtime_uninit(void* raw) {
     struct oidfed_worker_runtime* rt = raw;
@@ -396,6 +466,17 @@ oidfed_config_init(struct oidfed_config* cfg) {
 
     strcpy(cfg->oidc_signing_key_file, CONFIG_DEFAULT_OIDC_KEY_FILE);
     strcpy(cfg->oidc_signing_alg, CONFIG_DEFAULT_OIDC_SIGNALG);
+    
+    strcpy(cfg->metadata.rp_metadata_url, CONFIG_DEFAULT_METADATA_URL);
+    strcpy(cfg->metadata.rp_metadata_digest, CONFIG_DEFAULT_METADATA_DIGEST);
+    strcpy(cfg->metadata.rp_metadata_digest_alg, CONFIG_DEFAULT_METADATA_DIGEST_ALG);
+
+    strcpy(cfg->metadata.fe_metadata_url, CONFIG_DEFAULT_METADATA_URL);
+    strcpy(cfg->metadata.fe_metadata_digest, CONFIG_DEFAULT_METADATA_DIGEST);
+    strcpy(cfg->metadata.fe_metadata_digest_alg, CONFIG_DEFAULT_METADATA_DIGEST_ALG);
+
+    cfg->metadata.rp_redirect_uris_sz = 0;
+    memset(cfg->metadata.rp_redirect_uris, 0, sizeof(cfg->metadata.rp_redirect_uris));
 
     cfg->trust_anchors_sz = 0;
     cfg->authority_hints_sz = 0;

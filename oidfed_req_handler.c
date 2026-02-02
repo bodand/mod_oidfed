@@ -39,6 +39,7 @@ int
 req_login_ui_handler(const struct oidfed_config* config, request_rec* r) {
     struct oidfed_worker_runtime* rt = config->worker_cfg.runtime;
 
+    ap_set_content_type(r, "text/html");
     ap_rputs("<html><body><h1>Trust-anchors:</h1><ul>", r);
 
     for (size_t i = 0; i < rt->trust_anchors_sz; i++) {
@@ -101,7 +102,7 @@ req_well_known_handler(const struct oidfed_config* config, request_rec* r) {
         return HTTP_INTERNAL_SERVER_ERROR;
     }
 
-    ap_set_content_type(r, "text/plain"); // TODO
+    ap_set_content_type(r, "application/entity-statement+jwt");
 
     while (bytes_sz > INT_MAX) {
         ap_rwrite(bytes, INT_MAX, r);
