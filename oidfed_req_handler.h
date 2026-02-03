@@ -7,4 +7,7 @@
 int
 oidfed_req_handler(request_rec* r);
 
+int
+oidfed_authenticate_user(request_rec* r);
+
 #endif

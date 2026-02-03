@@ -1,13 +1,16 @@
 #include <ap_config.h>
 #include <assert.h>
 #include <httpd.h>
+
 #include <http_config.h>
+#include <http_core.h>
 #include <http_log.h>
 #include <http_protocol.h>
+#include <http_request.h>
 
 #include <oidfed_config.h>
-#include <oidfed_wrap_loader.h>
 #include <oidfed_req_handler.h>
+#include <oidfed_wrap_loader.h>
 
 static int
 req_login_ui_handler(const struct oidfed_config* config, request_rec* r);
@@ -109,8 +112,36 @@ req_well_known_handler(const struct oidfed_config* config, request_rec* r) {
         bytes += INT_MAX;
         bytes_sz -= INT_MAX;
     }
-    ap_rwrite(bytes, (int)bytes_sz, r);
+    ap_rwrite(bytes, (int) bytes_sz, r);
 
     free(bytes);
     return OK;
+}
+
+static bool
+str_empty(const char* str) {
+    return str[0] == '\0';
+}
+
+int
+oidfed_authenticate_user(request_rec* r) {
+    const char* auth_type = ap_auth_type(r);
+    if (!auth_type || strcasecmp(auth_type, "Oidfed") != CMP_EQ) {
+        return DECLINED;
+    }
+
+    const struct oidfed_config* config = ap_get_module_config(r->server->module_config,
+                                                              &oidfed);
+
+    const char* login_url = str_empty(config->login_url) ? CONFIG_DEFAULT_LOGIN_PATH : config->login_url;
+
+    // TODO: Check for session cookie/token here.
+    // For now, we assume if we reached here and it's not the login page, we need to redirect.
+
+    if (strcmp(r->uri, login_url) == CMP_EQ) {
+        return DECLINED;
+    }
+
+    apr_table_setn(r->headers_out, "Location", login_url);
+    return HTTP_MOVED_TEMPORARILY;
 }

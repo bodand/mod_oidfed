@@ -26,6 +26,7 @@ oidfed_register_hooks(apr_pool_t* p) {
     ap_hook_handler(oidfed_req_handler, NULL, NULL, APR_HOOK_MIDDLE);
     ap_hook_child_init(worker_init_handler, NULL, NULL, APR_HOOK_MIDDLE);
     ap_hook_type_checker(oidfed_type_dispatcher, NULL, NULL, APR_HOOK_MIDDLE);
+    ap_hook_check_authn(oidfed_authenticate_user, NULL, NULL, APR_HOOK_MIDDLE, AP_AUTH_INTERNAL_PER_CONF);
 }
 
 void*
