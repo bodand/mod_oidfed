@@ -10,6 +10,7 @@
 #include <apr_strings.h>
 #include <apr_escape.h>
 
+#include <apr_hash.h>
 #include <oidfed_config.h>
 #include <oidfed_req_handler.h>
 #include <oidfed_wrap_loader.h>
@@ -167,20 +168,33 @@ oidfed_req_handler(request_rec* r) {
     return HTTP_NOT_FOUND;
 }
 
+struct op_info {
+    char* entity_id;
+    char* display_name;
+};
+
+static int
+compare_ops(const void* a, const void* b) {
+    const struct op_info* op_a = (const struct op_info*)a;
+    const struct op_info* op_b = (const struct op_info*)b;
+
+    const char* name_a = op_a->display_name ? op_a->display_name : op_a->entity_id;
+    const char* name_b = op_b->display_name ? op_b->display_name : op_b->entity_id;
+
+    return strcmp(name_a, name_b);
+}
+
 int
 req_login_ui_handler(const struct oidfed_config* config, request_rec* r) {
     struct oidfed_worker_runtime* rt = config->worker_cfg.runtime;
+    apr_hash_t* rendered_ops = apr_hash_make(r->pool);
+    apr_array_header_t* ops_list = apr_array_make(r->pool, 10, sizeof(struct op_info));
 
-    ap_set_content_type(r, "text/html");
-    ap_rputs("<html><body><h1>Trust-anchors:</h1><ul>", r);
-
-    ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "Rendering login UI with %lu trust anchors",
-        rt->trust_anchors_sz);
+    ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "Collecting OPs from %lu trust anchors",
+                  rt->trust_anchors_sz);
 
     for (size_t i = 0; i < rt->trust_anchors_sz; i++) {
         const struct oidfed_trust_anchor trust_anchor = rt->trust_anchors[i];
-
-        ap_rprintf(r, "<li><h2>%s</h2><h3>OPs:</h3><ul>", trust_anchor.entity_id);
 
         struct oidfed_collected_entity* entities = NULL;
         size_t entities_sz = 0;
@@ -191,34 +205,54 @@ req_login_ui_handler(const struct oidfed_config* config, request_rec* r) {
                                                          &entities_sz);
 
         for (size_t j = 0; j < entities_sz; j++) {
-            bool printed = false;
+            if (apr_hash_get(rendered_ops, entities[j].entity_id, APR_HASH_KEY_STRING)) {
+                oidfedCollectedEntityDestroy(r, &entities[j]);
+                continue;
+            }
+
+            apr_hash_set(rendered_ops, entities[j].entity_id, APR_HASH_KEY_STRING, entities[j].entity_id);
+
+            struct op_info* info = (struct op_info*)apr_array_push(ops_list);
+            info->entity_id = apr_pstrdup(r->pool, entities[j].entity_id);
+            info->display_name = NULL;
+
             struct oidfed_collected_entity_ui_enumerator enumerator =
                     oidfedCollectedEntityEnumerateUi(r, entities[j]);
-            while (oidfedCollectedEntityNextUi(r, &enumerator)) {
+            if (oidfedCollectedEntityNextUi(r, &enumerator)) {
                 struct oidfed_ui_info ui = oidfedCollectedEntityGetUiValue(r, &enumerator);
-                ap_rprintf(r, "<li>%s (<a href=\"%s?op=%s\">%s</a>)</li>",
-                           ui.display_name,
-                           config->login_url,
-                           entities[j].entity_id,
-                           entities[j].entity_id
-                );
-                printed = true;
+                if (ui.display_name) {
+                    info->display_name = apr_pstrdup(r->pool, ui.display_name);
+                }
                 oidfedUiInfoDestroy(r, &ui);
             }
             oidfedCollectedEntityFinishUi(r, &enumerator);
-
-            if (!printed) {
-                ap_rprintf(r, "<li><a href=\"%s?op=%s\">%s</a></li>",
-                           config->login_url,
-                           entities[j].entity_id,
-                           entities[j].entity_id);
-            }
 
             oidfedCollectedEntityDestroy(r, &entities[j]);
         }
 
         free(entities);
-        ap_rputs("</ul></li>", r);
+    }
+
+    qsort(ops_list->elts, ops_list->nelts, ops_list->elt_size, compare_ops);
+
+    ap_set_content_type(r, "text/html");
+    ap_rputs("<html><body><h1>Available OPs:</h1><ul>", r);
+
+    for (int i = 0; i < ops_list->nelts; i++) {
+        struct op_info* info = &APR_ARRAY_IDX(ops_list, i, struct op_info);
+        if (info->display_name) {
+            ap_rprintf(r, "<li>%s (<a href=\"%s?op=%s\">%s</a>)</li>",
+                       info->display_name,
+                       config->login_url,
+                       info->entity_id,
+                       info->entity_id
+            );
+        } else {
+            ap_rprintf(r, "<li><a href=\"%s?op=%s\">%s</a></li>",
+                       config->login_url,
+                       info->entity_id,
+                       info->entity_id);
+        }
     }
 
     ap_rputs("</ul></body></html>", r);
