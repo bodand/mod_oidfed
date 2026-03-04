@@ -49,25 +49,38 @@ oidfed_merge_dir_config(apr_pool_t* apr_pool, void* base_conf, void* new_conf) {
 
     result->worker_cfg.lazy_load_symbols = new->worker_cfg.lazy_load_symbols;
 
-    if (str_empty(new->login_url))
-        strlcpy(result->login_url, base->login_url, sizeof(result->login_url));
-    else
-        strlcpy(result->login_url, new->login_url, sizeof(result->login_url));
+    const struct oidfed_config* login_base = new;
+    if (str_empty(new->login_url)) login_base = base;
+    if (strlcpy(result->login_url,
+                login_base->login_url,
+                sizeof(result->login_url)) > sizeof(result->login_url)) {
+        ap_log_error(APLOG_MARK, APLOG_EMERG, 0, NULL, "Login path too long");
+        goto error;
+    }
 
-    if (str_empty(new->entity_id))
-        strlcpy(result->entity_id, base->entity_id, sizeof(result->entity_id));
-    else
-        strlcpy(result->entity_id, new->entity_id, sizeof(result->entity_id));
+    const struct oidfed_config* entity_base = new;
+    if (str_empty(new->entity_id)) entity_base = base;
+    if (strlcpy(result->entity_id,
+                entity_base->entity_id,
+                sizeof(result->entity_id)) > sizeof(result->entity_id)) {
+        ap_log_error(APLOG_MARK, APLOG_EMERG, 0, NULL, "Entity ID too long");
+        goto error;
+    }
 
-    if (str_empty(new->federation_signing_key_file))
-        strlcpy(result->federation_signing_key_file, base->federation_signing_key_file, sizeof(result->federation_signing_key_file));
-    else
-        strlcpy(result->federation_signing_key_file, new->federation_signing_key_file, sizeof(result->federation_signing_key_file));
+    const size_t key_fname_size = sizeof(result->federation_signing_key_file);
+    const struct oidfed_config* metadata_base = new;
+    if (str_empty(new->federation_signing_key_file)) metadata_base = base;
+    if (strlcpy(result->federation_signing_key_file,
+                metadata_base->federation_signing_key_file,
+                key_fname_size) >= key_fname_size) {
+        ap_log_error(APLOG_MARK, APLOG_EMERG, 0, NULL, "Federation signing key file path too long");
+        goto error;
+    }
 
     result->trust_anchors_sz = base->trust_anchors_sz + new->trust_anchors_sz;
     if (result->trust_anchors_sz > CONFIG_TRUST_ANCHORS_MAX) {
         ap_log_error(APLOG_MARK, APLOG_EMERG, 0, NULL, "Too many trust anchors");
-        return NULL;
+        goto error;
     }
 
     memcpy(result->trust_anchors,
@@ -80,7 +93,7 @@ oidfed_merge_dir_config(apr_pool_t* apr_pool, void* base_conf, void* new_conf) {
     result->authority_hints_sz = base->authority_hints_sz + new->authority_hints_sz;
     if (result->authority_hints_sz > CONFIG_AUTHORITY_HINTS_MAX) {
         ap_log_error(APLOG_MARK, APLOG_EMERG, 0, NULL, "Too many authority hints");
-        return NULL;
+        goto error;
     }
     memcpy(result->authority_hints,
            base->authority_hints,
@@ -89,14 +102,13 @@ oidfed_merge_dir_config(apr_pool_t* apr_pool, void* base_conf, void* new_conf) {
            new->authority_hints,
            sizeof(char*) * new->authority_hints_sz);
 
-    if (new->filters) {
-        result->filters = new->filters;
-    }
-    else {
-        result->filters = (struct oidfed_filter_config*) base->filters;
-    }
+    result->filters = (struct oidfed_filter_config*) base->filters;
+    if (new->filters) result->filters = new->filters;
 
     return result;
+
+error:
+    return NULL;
 }
 
 void*

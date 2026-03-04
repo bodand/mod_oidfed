@@ -15,7 +15,7 @@ struct oidfed_session {
 
 struct oidfed_session_storage {
     void* impl;
-    void (*set)(const struct oidfed_session_storage* storage, struct oidfed_session* session);
+    void (*set)(const struct oidfed_session_storage* storage, const struct oidfed_session* session);
     struct oidfed_session* (*get)(const struct oidfed_session_storage* storage, const char* sid);
     void (*remove)(const struct oidfed_session_storage* storage, const char* sid);
 };
