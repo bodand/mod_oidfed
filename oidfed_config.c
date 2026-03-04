@@ -6,8 +6,38 @@
 #include <httpd/httpd.h>
 #include <http_log.h>
 #include <apr_strings.h>
-
+#include <apr_hash.h>
+#include <apr_thread_mutex.h>
+#include <apr_time.h>
 #include <oidfed_config.h>
+
+struct in_memory_storage_impl {
+    apr_hash_t* hash;
+    apr_thread_mutex_t* mutex;
+};
+
+static void in_memory_set(const struct oidfed_session_storage* storage, struct oidfed_session* session) {
+    struct in_memory_storage_impl* impl = (struct in_memory_storage_impl*)storage->impl;
+    apr_thread_mutex_lock(impl->mutex);
+    apr_hash_set(impl->hash, session->sid, APR_HASH_KEY_STRING, session);
+    apr_thread_mutex_unlock(impl->mutex);
+}
+
+static struct oidfed_session* in_memory_get(const struct oidfed_session_storage* storage, const char* sid) {
+    struct in_memory_storage_impl* impl = (struct in_memory_storage_impl*)storage->impl;
+    struct oidfed_session* session;
+    apr_thread_mutex_lock(impl->mutex);
+    session = (struct oidfed_session*)apr_hash_get(impl->hash, sid, APR_HASH_KEY_STRING);
+    apr_thread_mutex_unlock(impl->mutex);
+    return session;
+}
+
+static void in_memory_remove(const struct oidfed_session_storage* storage, const char* sid) {
+    struct in_memory_storage_impl* impl = (struct in_memory_storage_impl*)storage->impl;
+    apr_thread_mutex_lock(impl->mutex);
+    apr_hash_set(impl->hash, sid, APR_HASH_KEY_STRING, NULL);
+    apr_thread_mutex_unlock(impl->mutex);
+}
 
 static void
 config_filter_append(server_rec* sv,
@@ -411,6 +441,15 @@ oidfed_worker_runtime_init(server_rec* sv, struct oidfed_config* config) {
         sv, oidc_signer, runtime->oidc_signing_alg);
     ap_log_error(APLOG_MARK, APLOG_INFO, 0, sv, "(worker:%d) creating signer for oidc", getpid());
     runtime->oidc_signer = oidfedSingleKeyStorageAsVersatileSigner(&runtime->oidc_key_storage);
+
+    struct in_memory_storage_impl* storage_impl = apr_pcalloc(sv->process->pool, sizeof(struct in_memory_storage_impl));
+    storage_impl->hash = apr_hash_make(sv->process->pool);
+    apr_thread_mutex_create(&storage_impl->mutex, APR_THREAD_MUTEX_DEFAULT, sv->process->pool);
+
+    runtime->session_storage.impl = storage_impl;
+    runtime->session_storage.set = in_memory_set;
+    runtime->session_storage.get = in_memory_get;
+    runtime->session_storage.remove = in_memory_remove;
 
     ap_log_error(APLOG_MARK, APLOG_INFO, 0, sv, "(worker:%d) creating entity metadata objects", getpid());
     runtime->rp_metadata = oidfedMetadataCreate(sv);

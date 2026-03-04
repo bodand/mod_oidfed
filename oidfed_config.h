@@ -6,7 +6,10 @@
 #include <http_config.h>
 #include <stddef.h>
 
+#include <apr_hash.h>
+#include <apr_thread_mutex.h>
 #include <oidfed_wrap_loader.h>
+#include <oidfed_req_handler.h>
 
 // COMPILE TIME CONFIGURATION //
 
@@ -73,6 +76,9 @@ struct oidfed_worker_runtime {
     struct oidfed_single_key_storage oidc_key_storage;
     /// Signature algorithm for OID Connect signing
     struct oidfed_signature_algorithm oidc_signing_alg;
+
+    /// Session storage
+    struct oidfed_session_storage session_storage;
 };
 
 struct oidfed_filter_config {
