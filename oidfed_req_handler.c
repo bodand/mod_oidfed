@@ -236,19 +236,29 @@ req_login_ui_handler(const struct oidfed_config* config, request_rec* r) {
     qsort(ops_list->elts, ops_list->nelts, ops_list->elt_size, compare_ops);
 
     ap_set_content_type(r, "text/html");
-    ap_rputs("<html><body><h1>Available OPs:</h1><ul>", r);
+    ap_rprintf(r, "<html>"
+        "<head>"
+        "<title>%s</title>"
+        "<link rel=\"stylesheet\" type=\"text/css\" href=\"%s\">"
+        "</head>"
+        "<body>"
+        "<h1 class=\"op-listing-header\">Available OPs:</h1>"
+        "<ul class=\"op-listing\">",
+        "Apache OpenID Federation",
+        "oidfed.css");
 
     for (int i = 0; i < ops_list->nelts; i++) {
         struct op_info* info = &APR_ARRAY_IDX(ops_list, i, struct op_info);
         if (info->display_name) {
-            ap_rprintf(r, "<li>%s (<a href=\"%s?op=%s\">%s</a>)</li>",
-                       info->display_name,
+            ap_rprintf(r, "<li class=\"op-elem\" style=\"--op-index: %d\"><a href=\"%s?op=%s\">%s</a></li>",
+                       i,
                        config->login_url,
                        info->entity_id,
-                       info->entity_id
+                       info->display_name
             );
         } else {
-            ap_rprintf(r, "<li><a href=\"%s?op=%s\">%s</a></li>",
+            ap_rprintf(r,  "<li class=\"op-elem\" style=\"--op-index: %d\"><a href=\"%s?op=%s\">%s</a></li>",
+                       i,
                        config->login_url,
                        info->entity_id,
                        info->entity_id);
