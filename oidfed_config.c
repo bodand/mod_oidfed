@@ -210,13 +210,17 @@ oidfed_add_op_filter_chain(cmd_parms* parms, void* mconfig, int argc, char* cons
         || strcmp(argv[0], "auto") == CMP_EQ) {
         *new_filter = apr_pcalloc(parms->pool, sizeof(struct oidfed_filter_config));
         (*new_filter)->next = NULL;
-        strcpy((*new_filter)->type, argv[0]);
+        if (strlcpy((*new_filter)->type, argv[0], sizeof((*new_filter)->type)) >= sizeof((*new_filter)->type)) {
+            return apr_psprintf(parms->pool, "OidfedAddOPFilterChain: filter type too long (max %lu)", (unsigned long)sizeof((*new_filter)->type) - 1);
+        }
         return NULL;
     }
     if (strcmp(argv[0], "grants") == CMP_EQ
         || strcmp(argv[0], "scopes") == CMP_EQ) {
         *new_filter = apr_pcalloc(parms->pool, sizeof(struct oidfed_filter_config));
-        strcpy((*new_filter)->type, argv[0]);
+        if (strlcpy((*new_filter)->type, argv[0], sizeof((*new_filter)->type)) >= sizeof((*new_filter)->type)) {
+            return apr_psprintf(parms->pool, "OidfedAddOPFilterChain: filter type too long (max %lu)", (unsigned long)sizeof((*new_filter)->type) - 1);
+        }
         (*new_filter)->arguments_sz = argc - 1;
         (*new_filter)->arguments = apr_pcalloc(parms->pool, sizeof(char*) * (*new_filter)->arguments_sz);
         (*new_filter)->next = NULL;
@@ -242,60 +246,54 @@ oidfed_cfg_add_trust_anchor(cmd_parms* parms, void* cfg, const char* entity_id) 
 const char*
 oidfed_cfg_set_rp_metadata_url(cmd_parms* parms, void* mconfig, const char* w) {
     struct oidfed_config* const cfg = ap_get_module_config(parms->server->module_config, &oidfed);
-    if (strlen(w) >= CONFIG_METADATA_STR_MAX) {
-        return apr_psprintf(parms->pool, "OidfedSetRPMetadataURL: value too long (max %d)", CONFIG_METADATA_STR_MAX - 1);
+    if (strlcpy(cfg->metadata.rp_metadata_url, w, sizeof(cfg->metadata.rp_metadata_url)) >= sizeof(cfg->metadata.rp_metadata_url)) {
+        return apr_psprintf(parms->pool, "OidfedSetRPMetadataURL: value too long (max %lu)", (unsigned long)sizeof(cfg->metadata.rp_metadata_url) - 1);
     }
-    strcpy(cfg->metadata.rp_metadata_url, w);
     return NULL;
 }
 
 const char*
 oidfed_cfg_set_rp_metadata_digest(cmd_parms* parms, void* mconfig, const char* w) {
     struct oidfed_config* const cfg = ap_get_module_config(parms->server->module_config, &oidfed);
-    if (strlen(w) >= CONFIG_METADATA_STR_MAX) {
-        return apr_psprintf(parms->pool, "OidfedSetRPMetadataDigest: value too long (max %d)", CONFIG_METADATA_STR_MAX - 1);
+    if (strlcpy(cfg->metadata.rp_metadata_digest, w, sizeof(cfg->metadata.rp_metadata_digest)) >= sizeof(cfg->metadata.rp_metadata_digest)) {
+        return apr_psprintf(parms->pool, "OidfedSetRPMetadataDigest: value too long (max %lu)", (unsigned long)sizeof(cfg->metadata.rp_metadata_digest) - 1);
     }
-    strcpy(cfg->metadata.rp_metadata_digest, w);
     return NULL;
 }
 
 const char*
 oidfed_cfg_set_rp_metadata_digest_alg(cmd_parms* parms, void* mconfig, const char* w) {
     struct oidfed_config* const cfg = ap_get_module_config(parms->server->module_config, &oidfed);
-    if (strlen(w) >= CONFIG_METADATA_STR_MAX) {
-        return apr_psprintf(parms->pool, "OidfedSetRPMetadataDigestAlgorithm: value too long (max %d)", CONFIG_METADATA_STR_MAX - 1);
+    if (strlcpy(cfg->metadata.rp_metadata_digest_alg, w, sizeof(cfg->metadata.rp_metadata_digest_alg)) >= sizeof(cfg->metadata.rp_metadata_digest_alg)) {
+        return apr_psprintf(parms->pool, "OidfedSetRPMetadataDigestAlgorithm: value too long (max %lu)", (unsigned long)sizeof(cfg->metadata.rp_metadata_digest_alg) - 1);
     }
-    strcpy(cfg->metadata.rp_metadata_digest_alg, w);
     return NULL;
 }
 
 const char*
 oidfed_cfg_set_fe_metadata_url(cmd_parms* parms, void* mconfig, const char* w) {
     struct oidfed_config* const cfg = ap_get_module_config(parms->server->module_config, &oidfed);
-    if (strlen(w) >= CONFIG_METADATA_STR_MAX) {
-        return apr_psprintf(parms->pool, "OidfedSetFEMetadataURL: value too long (max %d)", CONFIG_METADATA_STR_MAX - 1);
+    if (strlcpy(cfg->metadata.fe_metadata_url, w, sizeof(cfg->metadata.fe_metadata_url)) >= sizeof(cfg->metadata.fe_metadata_url)) {
+        return apr_psprintf(parms->pool, "OidfedSetFEMetadataURL: value too long (max %lu)", (unsigned long)sizeof(cfg->metadata.fe_metadata_url) - 1);
     }
-    strcpy(cfg->metadata.fe_metadata_url, w);
     return NULL;
 }
 
 const char*
 oidfed_cfg_set_fe_metadata_digest(cmd_parms* parms, void* mconfig, const char* w) {
     struct oidfed_config* const cfg = ap_get_module_config(parms->server->module_config, &oidfed);
-    if (strlen(w) >= CONFIG_METADATA_STR_MAX) {
-        return apr_psprintf(parms->pool, "OidfedSetFEMetadataDigest: value too long (max %d)", CONFIG_METADATA_STR_MAX - 1);
+    if (strlcpy(cfg->metadata.fe_metadata_digest, w, sizeof(cfg->metadata.fe_metadata_digest)) >= sizeof(cfg->metadata.fe_metadata_digest)) {
+        return apr_psprintf(parms->pool, "OidfedSetFEMetadataDigest: value too long (max %lu)", (unsigned long)sizeof(cfg->metadata.fe_metadata_digest) - 1);
     }
-    strcpy(cfg->metadata.fe_metadata_digest, w);
     return NULL;
 }
 
 const char*
 oidfed_cfg_set_fe_metadata_digest_alg(cmd_parms* parms, void* mconfig, const char* w) {
     struct oidfed_config* const cfg = ap_get_module_config(parms->server->module_config, &oidfed);
-    if (strlen(w) >= CONFIG_METADATA_STR_MAX) {
-        return apr_psprintf(parms->pool, "OidfedSetFEMetadataDigestAlgorithm: value too long (max %d)", CONFIG_METADATA_STR_MAX - 1);
+    if (strlcpy(cfg->metadata.fe_metadata_digest_alg, w, sizeof(cfg->metadata.fe_metadata_digest_alg)) >= sizeof(cfg->metadata.fe_metadata_digest_alg)) {
+        return apr_psprintf(parms->pool, "OidfedSetFEMetadataDigestAlgorithm: value too long (max %lu)", (unsigned long)sizeof(cfg->metadata.fe_metadata_digest_alg) - 1);
     }
-    strcpy(cfg->metadata.fe_metadata_digest_alg, w);
     return NULL;
 }
 
@@ -497,22 +495,22 @@ void
 oidfed_config_init(struct oidfed_config* cfg) {
     oidfed_worker_config_init(&cfg->worker_cfg);
 
-    strcpy(cfg->login_url, CONFIG_DEFAULT_LOGIN_PATH);
-    strcpy(cfg->entity_id, CONFIG_DEFAULT_ENTITY_ID);
+    strlcpy(cfg->login_url, CONFIG_DEFAULT_LOGIN_PATH, sizeof(cfg->login_url));
+    strlcpy(cfg->entity_id, CONFIG_DEFAULT_ENTITY_ID, sizeof(cfg->entity_id));
 
-    strcpy(cfg->federation_signing_key_file, CONFIG_DEFAULT_FEDERATION_KEY_FILE);
-    strcpy(cfg->federation_signing_alg, CONFIG_DEFAULT_FED_SIGNALG);
+    strlcpy(cfg->federation_signing_key_file, CONFIG_DEFAULT_FEDERATION_KEY_FILE, sizeof(cfg->federation_signing_key_file));
+    strlcpy(cfg->federation_signing_alg, CONFIG_DEFAULT_FED_SIGNALG, sizeof(cfg->federation_signing_alg));
 
-    strcpy(cfg->oidc_signing_key_file, CONFIG_DEFAULT_OIDC_KEY_FILE);
-    strcpy(cfg->oidc_signing_alg, CONFIG_DEFAULT_OIDC_SIGNALG);
+    strlcpy(cfg->oidc_signing_key_file, CONFIG_DEFAULT_OIDC_KEY_FILE, sizeof(cfg->oidc_signing_key_file));
+    strlcpy(cfg->oidc_signing_alg, CONFIG_DEFAULT_OIDC_SIGNALG, sizeof(cfg->oidc_signing_alg));
     
-    strcpy(cfg->metadata.rp_metadata_url, CONFIG_DEFAULT_METADATA_URL);
-    strcpy(cfg->metadata.rp_metadata_digest, CONFIG_DEFAULT_METADATA_DIGEST);
-    strcpy(cfg->metadata.rp_metadata_digest_alg, CONFIG_DEFAULT_METADATA_DIGEST_ALG);
+    strlcpy(cfg->metadata.rp_metadata_url, CONFIG_DEFAULT_METADATA_URL, sizeof(cfg->metadata.rp_metadata_url));
+    strlcpy(cfg->metadata.rp_metadata_digest, CONFIG_DEFAULT_METADATA_DIGEST, sizeof(cfg->metadata.rp_metadata_digest));
+    strlcpy(cfg->metadata.rp_metadata_digest_alg, CONFIG_DEFAULT_METADATA_DIGEST_ALG, sizeof(cfg->metadata.rp_metadata_digest_alg));
 
-    strcpy(cfg->metadata.fe_metadata_url, CONFIG_DEFAULT_METADATA_URL);
-    strcpy(cfg->metadata.fe_metadata_digest, CONFIG_DEFAULT_METADATA_DIGEST);
-    strcpy(cfg->metadata.fe_metadata_digest_alg, CONFIG_DEFAULT_METADATA_DIGEST_ALG);
+    strlcpy(cfg->metadata.fe_metadata_url, CONFIG_DEFAULT_METADATA_URL, sizeof(cfg->metadata.fe_metadata_url));
+    strlcpy(cfg->metadata.fe_metadata_digest, CONFIG_DEFAULT_METADATA_DIGEST, sizeof(cfg->metadata.fe_metadata_digest));
+    strlcpy(cfg->metadata.fe_metadata_digest_alg, CONFIG_DEFAULT_METADATA_DIGEST_ALG, sizeof(cfg->metadata.fe_metadata_digest_alg));
 
     cfg->metadata.rp_redirect_uris_sz = 0;
     memset(cfg->metadata.rp_redirect_uris, 0, sizeof(cfg->metadata.rp_redirect_uris));

@@ -50,19 +50,19 @@ oidfed_merge_dir_config(apr_pool_t* apr_pool, void* base_conf, void* new_conf) {
     result->worker_cfg.lazy_load_symbols = new->worker_cfg.lazy_load_symbols;
 
     if (str_empty(new->login_url))
-        strcpy(result->login_url, base->login_url);
+        strlcpy(result->login_url, base->login_url, sizeof(result->login_url));
     else
-        strcpy(result->login_url, new->login_url);
+        strlcpy(result->login_url, new->login_url, sizeof(result->login_url));
 
     if (str_empty(new->entity_id))
-        strcpy(result->entity_id, base->entity_id);
+        strlcpy(result->entity_id, base->entity_id, sizeof(result->entity_id));
     else
-        strcpy(result->entity_id, new->entity_id);
+        strlcpy(result->entity_id, new->entity_id, sizeof(result->entity_id));
 
     if (str_empty(new->federation_signing_key_file))
-        strcpy(result->federation_signing_key_file, base->federation_signing_key_file);
+        strlcpy(result->federation_signing_key_file, base->federation_signing_key_file, sizeof(result->federation_signing_key_file));
     else
-        strcpy(result->federation_signing_key_file, new->federation_signing_key_file);
+        strlcpy(result->federation_signing_key_file, new->federation_signing_key_file, sizeof(result->federation_signing_key_file));
 
     result->trust_anchors_sz = base->trust_anchors_sz + new->trust_anchors_sz;
     if (result->trust_anchors_sz > CONFIG_TRUST_ANCHORS_MAX) {
