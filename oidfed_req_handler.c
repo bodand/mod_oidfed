@@ -143,47 +143,57 @@ oidfed_req_handler(request_rec* r) {
             op_id = apr_table_get(args, "op");
         }
 
-        // TODO: break up heavly nested code
         if (op_id) {
             ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "Initiating login for OP: %s", op_id);
             const struct oidfed_worker_runtime* rt = config->worker_cfg.runtime;
             struct oidfed_trust_resolver resolver = oidfedTrustResolverCreate(r, (char*)op_id, rt->trust_anchors, rt->trust_anchors_sz);
             struct oidfed_trust_chains chains = oidfedTrustResolverResolveToValidChains(r, resolver);
 
-            if (oidfedTrustChainsCount(r, chains) > 0) {
-                struct oidfed_trust_chain chain = oidfedTrustChainsGet(r, chains, 0);
-                int errc = 0;
-                struct oidfed_metadata metadata = oidfedTrustChainGetMetadata(r, chain, &errc);
-
-                if (errc == 0) {
-                    struct oidfed_openid_provider_metadata op_metadata = oidfedMetadataGetOPMetadata(r, metadata);
-                    if (op_metadata.impl != 0) {
-                        char* auth_url = construct_auth_url(r, config, op_metadata, op_id);
-                        if (auth_url) {
-                            ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "Redirecting to OP auth URL: %s", auth_url);
-                            
-                            oidfedOpenIDProviderMetadataDestroy(r, &op_metadata);
-                            oidfedMetadataDestroy(r, &metadata);
-                            oidfedTrustChainDestroy(r, &chain);
-                            oidfedTrustChainsDestroy(r, &chains);
-                            oidfedTrustResolverDestroy(r, &resolver);
-                            
-                            apr_table_set(r->headers_out, "Location", auth_url);
-                            return HTTP_MOVED_TEMPORARILY;
-                        } else {
-                            ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "Failed to construct auth URL for OP: %s", op_id);
-                        }
-                    } else {
-                        ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "Failed to get OP metadata for OP: %s", op_id);
-                    }
-                    oidfedMetadataDestroy(r, &metadata);
-                } else {
-                    ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "Failed to get metadata from trust chain for OP: %s, error: %d", op_id, errc);
-                }
-                oidfedTrustChainDestroy(r, &chain);
-            } else {
+            if (oidfedTrustChainsCount(r, chains) <= 0) {
                 ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "No valid trust chains found for OP: %s", op_id);
+                goto cleanup_resolver;
             }
+
+            struct oidfed_trust_chain chain = oidfedTrustChainsGet(r, chains, 0);
+            int errc = 0;
+            struct oidfed_metadata metadata = oidfedTrustChainGetMetadata(r, chain, &errc);
+
+            if (errc != 0) {
+                ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "Failed to get metadata from trust chain for OP: %s, error: %d", op_id, errc);
+                goto cleanup_chain;
+            }
+
+            struct oidfed_openid_provider_metadata op_metadata = oidfedMetadataGetOPMetadata(r, metadata);
+            if (op_metadata.impl == 0) {
+                ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "Failed to get OP metadata for OP: %s", op_id);
+                goto cleanup_metadata;
+            }
+
+            char* auth_url = construct_auth_url(r, config, op_metadata, op_id);
+            if (!auth_url) {
+                ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "Failed to construct auth URL for OP: %s", op_id);
+                goto cleanup_op_metadata;
+            }
+
+            ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "Redirecting to OP auth URL: %s", auth_url);
+
+            apr_table_set(r->headers_out, "Location", auth_url);
+
+            oidfedOpenIDProviderMetadataDestroy(r, &op_metadata);
+            oidfedMetadataDestroy(r, &metadata);
+            oidfedTrustChainDestroy(r, &chain);
+            oidfedTrustChainsDestroy(r, &chains);
+            oidfedTrustResolverDestroy(r, &resolver);
+
+            return HTTP_MOVED_TEMPORARILY;
+
+cleanup_op_metadata:
+            oidfedOpenIDProviderMetadataDestroy(r, &op_metadata);
+cleanup_metadata:
+            oidfedMetadataDestroy(r, &metadata);
+cleanup_chain:
+            oidfedTrustChainDestroy(r, &chain);
+cleanup_resolver:
             oidfedTrustChainsDestroy(r, &chains);
             oidfedTrustResolverDestroy(r, &resolver);
         }
@@ -387,9 +397,7 @@ req_redirect_handler(const struct oidfed_config* config, request_rec* r) {
 
     if (oidfedTrustChainsCount(r, chains) == 0) {
         ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "OIDC redirect: No valid trust chains found for OP: %s", op_id);
-        oidfedTrustChainsDestroy(r, &chains);
-        oidfedTrustResolverDestroy(r, &resolver);
-        return HTTP_FORBIDDEN;
+        goto cleanup_resolver;
     }
 
     struct oidfed_trust_chain chain = oidfedTrustChainsGet(r, chains, 0);
@@ -398,31 +406,19 @@ req_redirect_handler(const struct oidfed_config* config, request_rec* r) {
 
     if (errc != 0) {
         ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "OIDC redirect: Failed to get metadata for OP: %s", op_id);
-        oidfedTrustChainDestroy(r, &chain);
-        oidfedTrustChainsDestroy(r, &chains);
-        oidfedTrustResolverDestroy(r, &resolver);
-        return HTTP_INTERNAL_SERVER_ERROR;
+        goto cleanup_chain;
     }
 
     struct oidfed_openid_provider_metadata op_metadata = oidfedMetadataGetOPMetadata(r, metadata);
     if (op_metadata.impl == 0) {
         ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "OIDC redirect: No OP metadata for OP: %s", op_id);
-        oidfedMetadataDestroy(r, &metadata);
-        oidfedTrustChainDestroy(r, &chain);
-        oidfedTrustChainsDestroy(r, &chains);
-        oidfedTrustResolverDestroy(r, &resolver);
-        return HTTP_INTERNAL_SERVER_ERROR;
+        goto cleanup_metadata;
     }
 
     char* token_endpoint = oidfedOpenIDProviderMetadataGetTokenEndpoint(r, op_metadata);
     if (!token_endpoint) {
         ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "OIDC redirect: No token endpoint found for OP: %s", op_id);
-        oidfedOpenIDProviderMetadataDestroy(r, &op_metadata);
-        oidfedMetadataDestroy(r, &metadata);
-        oidfedTrustChainDestroy(r, &chain);
-        oidfedTrustChainsDestroy(r, &chains);
-        oidfedTrustResolverDestroy(r, &resolver);
-        return HTTP_INTERNAL_SERVER_ERROR;
+        goto cleanup_op_metadata;
     }
 
     ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "OIDC redirect: Found Token Endpoint: %s", token_endpoint);
@@ -435,12 +431,7 @@ req_redirect_handler(const struct oidfed_config* config, request_rec* r) {
     if (errc != 0) {
         ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "OIDC redirect: Token exchange failed for OP: %s", op_id);
         free(token_endpoint);
-        oidfedOpenIDProviderMetadataDestroy(r, &op_metadata);
-        oidfedMetadataDestroy(r, &metadata);
-        oidfedTrustChainDestroy(r, &chain);
-        oidfedTrustChainsDestroy(r, &chains);
-        oidfedTrustResolverDestroy(r, &resolver);
-        return HTTP_FORBIDDEN;
+        goto cleanup_op_metadata;
     }
 
     ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "OIDC redirect: Successfully retrieved tokens: %s", token_response);
@@ -477,6 +468,18 @@ req_redirect_handler(const struct oidfed_config* config, request_rec* r) {
     ap_rprintf(r, "<html><body><h1>Authentication Successful</h1><p>Received tokens and verified with OP.</p></body></html>");
 
     return OK;
+
+cleanup_op_metadata:
+    oidfedOpenIDProviderMetadataDestroy(r, &op_metadata);
+cleanup_metadata:
+    oidfedMetadataDestroy(r, &metadata);
+cleanup_chain:
+    oidfedTrustChainDestroy(r, &chain);
+cleanup_resolver:
+    oidfedTrustChainsDestroy(r, &chains);
+    oidfedTrustResolverDestroy(r, &resolver);
+
+    return (errc != 0) ? HTTP_FORBIDDEN : HTTP_INTERNAL_SERVER_ERROR;
 }
 
 static bool
@@ -499,30 +502,36 @@ oidfed_authenticate_user(request_rec* r) {
     const char* sid = NULL;
     ap_cookie_read(r, OIDFED_SESSION_COOKIE, &sid, 0);
 
-    if (sid) {
-        const struct oidfed_worker_runtime* rt = config->worker_cfg.runtime;
-        struct oidfed_session* session = rt->session_storage.get(&rt->session_storage, sid);
-
-        if (session) {
-            if (session->expiry > apr_time_now()) {
-                ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "OIDC auth: Valid session found for SID: %s", sid);
-                char* user = oidfedExtractSubjectFromTokenResponse(r, session->token_response);
-                if (user) {
-                    r->user = apr_pstrdup(r->pool, user);
-                    free(user);
-                } else {
-                    ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "OIDC auth: Failed to extract user from token response for SID: %s", sid);
-                    r->user = apr_pstrdup(r->pool, "oidc_user");
-                }
-                return OK;
-            }
-            ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "OIDC auth: Session expired for SID: %s", sid);
-            rt->session_storage.remove(&rt->session_storage, sid);
-        } else {
-            ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "OIDC auth: Session not found for SID: %s", sid);
-        }
+    if (!sid) {
+        goto check_login_url;
     }
 
+    const struct oidfed_worker_runtime* rt = config->worker_cfg.runtime;
+    struct oidfed_session* session = rt->session_storage.get(&rt->session_storage, sid);
+
+    if (!session) {
+        ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "OIDC auth: Session not found for SID: %s", sid);
+        goto check_login_url;
+    }
+
+    if (session->expiry <= apr_time_now()) {
+        ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "OIDC auth: Session expired for SID: %s", sid);
+        rt->session_storage.remove(&rt->session_storage, sid);
+        goto check_login_url;
+    }
+
+    ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "OIDC auth: Valid session found for SID: %s", sid);
+    char* user = oidfedExtractSubjectFromTokenResponse(r, session->token_response);
+    if (user) {
+        r->user = apr_pstrdup(r->pool, user);
+        free(user);
+    } else {
+        ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "OIDC auth: Failed to extract user from token response for SID: %s", sid);
+        r->user = apr_pstrdup(r->pool, "oidc_user");
+    }
+    return OK;
+
+check_login_url:
     if (strcmp(r->uri, login_url) == CMP_EQ) {
         return DECLINED;
     }
