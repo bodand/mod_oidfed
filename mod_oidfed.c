@@ -105,6 +105,114 @@ oidfed_merge_dir_config(apr_pool_t* apr_pool, void* base_conf, void* new_conf) {
     result->filters = (struct oidfed_filter_config*) base->filters;
     if (new->filters) result->filters = new->filters;
 
+    const struct oidfed_config* signing_base = new;
+    if (str_empty(new->federation_signing_alg)) signing_base = base;
+    strlcpy(result->federation_signing_alg, signing_base->federation_signing_alg,
+            sizeof(result->federation_signing_alg));
+
+    signing_base = new;
+    if (str_empty(new->oidc_signing_key_file)) signing_base = base;
+    strlcpy(result->oidc_signing_key_file, signing_base->oidc_signing_key_file,
+            sizeof(result->oidc_signing_key_file));
+
+    signing_base = new;
+    if (str_empty(new->oidc_signing_alg)) signing_base = base;
+    strlcpy(result->oidc_signing_alg, signing_base->oidc_signing_alg,
+            sizeof(result->oidc_signing_alg));
+
+    // Merge metadata
+    const struct oidfed_config* meta_base = new;
+    if (str_empty(new->metadata.rp_metadata_url)) meta_base = base;
+    strlcpy(result->metadata.rp_metadata_url, meta_base->metadata.rp_metadata_url,
+            sizeof(result->metadata.rp_metadata_url));
+
+    meta_base = new;
+    if (str_empty(new->metadata.rp_metadata_digest)) meta_base = base;
+    strlcpy(result->metadata.rp_metadata_digest, meta_base->metadata.rp_metadata_digest,
+            sizeof(result->metadata.rp_metadata_digest));
+
+    meta_base = new;
+    if (str_empty(new->metadata.rp_metadata_digest_alg)) meta_base = base;
+    strlcpy(result->metadata.rp_metadata_digest_alg, meta_base->metadata.rp_metadata_digest_alg,
+            sizeof(result->metadata.rp_metadata_digest_alg));
+
+    meta_base = new;
+    if (str_empty(new->metadata.fe_metadata_url)) meta_base = base;
+    strlcpy(result->metadata.fe_metadata_url, meta_base->metadata.fe_metadata_url,
+            sizeof(result->metadata.fe_metadata_url));
+
+    meta_base = new;
+    if (str_empty(new->metadata.fe_metadata_digest)) meta_base = base;
+    strlcpy(result->metadata.fe_metadata_digest, meta_base->metadata.fe_metadata_digest,
+            sizeof(result->metadata.fe_metadata_digest));
+
+    meta_base = new;
+    if (str_empty(new->metadata.fe_metadata_digest_alg)) meta_base = base;
+    strlcpy(result->metadata.fe_metadata_digest_alg, meta_base->metadata.fe_metadata_digest_alg,
+            sizeof(result->metadata.fe_metadata_digest_alg));
+
+    meta_base = new;
+    if (str_empty(new->metadata.application_type)) meta_base = base;
+    strlcpy(result->metadata.application_type, meta_base->metadata.application_type,
+            sizeof(result->metadata.application_type));
+
+    meta_base = new;
+    if (str_empty(new->metadata.client_name)) meta_base = base;
+    strlcpy(result->metadata.client_name, meta_base->metadata.client_name,
+            sizeof(result->metadata.client_name));
+
+    meta_base = new;
+    if (str_empty(new->metadata.organization_name)) meta_base = base;
+    strlcpy(result->metadata.organization_name, meta_base->metadata.organization_name,
+            sizeof(result->metadata.organization_name));
+
+    meta_base = new;
+    if (str_empty(new->metadata.logo_uri)) meta_base = base;
+    strlcpy(result->metadata.logo_uri, meta_base->metadata.logo_uri,
+            sizeof(result->metadata.logo_uri));
+
+    // Arrays
+    result->metadata.rp_redirect_uris_sz = base->metadata.rp_redirect_uris_sz + new->metadata.rp_redirect_uris_sz;
+    if (result->metadata.rp_redirect_uris_sz > CONFIG_METADATA_REDIRECT_URIS_MAX) {
+        ap_log_error(APLOG_MARK, APLOG_EMERG, 0, NULL, "Too many redirect URIs");
+        goto error;
+    }
+    memcpy(result->metadata.rp_redirect_uris, base->metadata.rp_redirect_uris,
+           sizeof(char*) * base->metadata.rp_redirect_uris_sz);
+    memcpy(result->metadata.rp_redirect_uris + base->metadata.rp_redirect_uris_sz,
+           new->metadata.rp_redirect_uris, sizeof(char*) * new->metadata.rp_redirect_uris_sz);
+
+    result->metadata.client_registration_types_sz =
+            base->metadata.client_registration_types_sz + new->metadata.client_registration_types_sz;
+    if (result->metadata.client_registration_types_sz > CONFIG_METADATA_CLIENT_REG_TYPES_MAX) {
+        ap_log_error(APLOG_MARK, APLOG_EMERG, 0, NULL, "Too many client registration types");
+        goto error;
+    }
+    memcpy(result->metadata.client_registration_types, base->metadata.client_registration_types,
+           sizeof(char*) * base->metadata.client_registration_types_sz);
+    memcpy(result->metadata.client_registration_types + base->metadata.client_registration_types_sz,
+           new->metadata.client_registration_types, sizeof(char*) * new->metadata.client_registration_types_sz);
+
+    result->metadata.response_types_sz = base->metadata.response_types_sz + new->metadata.response_types_sz;
+    if (result->metadata.response_types_sz > CONFIG_METADATA_RESPONSE_TYPES_MAX) {
+        ap_log_error(APLOG_MARK, APLOG_EMERG, 0, NULL, "Too many response types");
+        goto error;
+    }
+    memcpy(result->metadata.response_types, base->metadata.response_types,
+           sizeof(char*) * base->metadata.response_types_sz);
+    memcpy(result->metadata.response_types + base->metadata.response_types_sz,
+           new->metadata.response_types, sizeof(char*) * new->metadata.response_types_sz);
+
+    result->metadata.grant_types_sz = base->metadata.grant_types_sz + new->metadata.grant_types_sz;
+    if (result->metadata.grant_types_sz > CONFIG_METADATA_GRANT_TYPES_MAX) {
+        ap_log_error(APLOG_MARK, APLOG_EMERG, 0, NULL, "Too many grant types");
+        goto error;
+    }
+    memcpy(result->metadata.grant_types, base->metadata.grant_types,
+           sizeof(char*) * base->metadata.grant_types_sz);
+    memcpy(result->metadata.grant_types + base->metadata.grant_types_sz,
+           new->metadata.grant_types, sizeof(char*) * new->metadata.grant_types_sz);
+
     return result;
 
 error:
@@ -147,6 +255,13 @@ oidfed_type_dispatcher(request_rec* r) {
     if (strcmp(r->uri, OIDFED_WELL_KNOWN_PATH) == CMP_EQ) {
         r->handler = "oidfed";
         return OK;
+    }
+    for (size_t i = 0; i < config->metadata.rp_redirect_uris_sz; ++i) {
+        const char* redirect_uri = config->metadata.rp_redirect_uris[i];
+        if (redirect_uri && strcmp(r->uri, redirect_uri) == CMP_EQ) {
+            r->handler = "oidfed";
+            return OK;
+        }
     }
     if (strcmp(r->uri, login_url) == CMP_EQ) {
         r->handler = "oidfed";

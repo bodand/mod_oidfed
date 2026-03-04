@@ -122,8 +122,10 @@ oidfed_cfg_set_fed_private_key(cmd_parms* parms, void* cfg, const char* key_file
 
     struct oidfed_config* const config = ap_get_module_config(parms->server->module_config, &oidfed);
     const size_t sign_fname_size = sizeof(config->federation_signing_key_file);
-    if (strlcpy(config->federation_signing_key_file, key_file, sign_fname_size) >= sign_fname_size)
-        return "Federation signing key file path too long";
+    if (strlcpy(config->federation_signing_key_file, key_file, sign_fname_size) >= sign_fname_size) {
+        return apr_psprintf(parms->pool, "OidfedSetOidFederationSigningKey: value too long (max %lu)",
+                            (unsigned long) sign_fname_size - 1);
+    }
 
     return NULL;
 }
@@ -135,8 +137,10 @@ oidfed_cfg_set_oidc_private_key(cmd_parms* parms, void* mconfig, const char* key
 
     struct oidfed_config* const config = ap_get_module_config(parms->server->module_config, &oidfed);
     const size_t key_fname_size = sizeof(config->oidc_signing_key_file);
-    if (strlcpy(config->oidc_signing_key_file, key_file, key_fname_size) >= key_fname_size)
-        return "Federation signing key file path too long";
+    if (strlcpy(config->oidc_signing_key_file, key_file, key_fname_size) >= key_fname_size) {
+        return apr_psprintf(parms->pool, "OidfedSetOidConnectSigningKey: value too long (max %lu)",
+                            (unsigned long) key_fname_size - 1);
+    }
 
     return NULL;
 }
@@ -145,9 +149,11 @@ const char*
 oidfged_cfg_set_oidc_signalg(cmd_parms* parms, void* mconfig, const char* w) {
     struct oidfed_config* const cfg = ap_get_module_config(parms->server->module_config, &oidfed);
 
-    const size_t sign_algo_size = strlcpy(cfg->oidc_signing_alg, w, sizeof(cfg->oidc_signing_alg));
-    if (sign_algo_size >= sizeof(cfg->oidc_signing_alg))
-        return "OIDC signature algorithm too long";
+    const size_t sz = sizeof(cfg->oidc_signing_alg);
+    if (strlcpy(cfg->oidc_signing_alg, w, sz) >= sz) {
+        return apr_psprintf(parms->pool, "OidfedSetOidConnectSignatureAlgorithm: value too long (max %lu)",
+                            (unsigned long) sz - 1);
+    }
 
     return NULL;
 }
@@ -156,9 +162,11 @@ const char*
 oidfged_cfg_set_fed_signalg(cmd_parms* parms, void* mconfig, const char* w) {
     struct oidfed_config* const cfg = ap_get_module_config(parms->server->module_config, &oidfed);
 
-    const size_t sign_algo_size = sizeof(cfg->federation_signing_alg);
-    if (strlcpy(cfg->federation_signing_alg, w, sign_algo_size) >= sign_algo_size)
-        return "Federation signature algorithm too long";
+    const size_t sz = sizeof(cfg->federation_signing_alg);
+    if (strlcpy(cfg->federation_signing_alg, w, sz) >= sz) {
+        return apr_psprintf(parms->pool, "OidfedSetOidFederationSignatureAlgorithm: value too long (max %lu)",
+                            (unsigned long) sz - 1);
+    }
 
     return NULL;
 }
@@ -173,8 +181,10 @@ oidfed_cfg_set_entity_id(cmd_parms* parms, void* mconfig, const char* w) {
     struct oidfed_config* const cfg = ap_get_module_config(parms->server->module_config, &oidfed);
 
     const size_t entity_size = sizeof(cfg->entity_id);
-    if (strlcpy(cfg->entity_id, w, entity_size) >= entity_size)
-        return "entity id too long";
+    if (strlcpy(cfg->entity_id, w, entity_size) >= entity_size) {
+        return apr_psprintf(parms->pool, "OidfedSetEntityId: value too long (max %lu)",
+                            (unsigned long) entity_size - 1);
+    }
 
     return NULL;
 }
@@ -343,10 +353,84 @@ oidfed_cfg_set_fe_metadata_digest_alg(cmd_parms* parms, void* mconfig, const cha
 const char*
 oidfed_cfg_add_rp_redirect_uri(cmd_parms* parms, void* mconfig, const char* w) {
     struct oidfed_config* const cfg = ap_get_module_config(parms->server->module_config, &oidfed);
-    if (cfg->metadata.rp_redirect_uris_sz >= CONFIG_METADATA_ARRAY_MAX) {
+    if (cfg->metadata.rp_redirect_uris_sz >= CONFIG_METADATA_REDIRECT_URIS_MAX) {
         return "OidfedAddRPRedirectURI: too many redirect URIs";
     }
     cfg->metadata.rp_redirect_uris[cfg->metadata.rp_redirect_uris_sz++] = apr_pstrdup(parms->pool, w);
+    return NULL;
+}
+
+const char*
+oidfed_cfg_set_application_type(cmd_parms* parms, void* mconfig, const char* w) {
+    struct oidfed_config* const cfg = ap_get_module_config(parms->server->module_config, &oidfed);
+    const size_t sz = sizeof(cfg->metadata.application_type);
+    if (strlcpy(cfg->metadata.application_type, w, sz) >= sz) {
+        return apr_psprintf(parms->pool, "OidfedSetApplicationType: value too long (max %lu)",
+                            (unsigned long) sz - 1);
+    }
+    return NULL;
+}
+
+const char*
+oidfed_cfg_set_client_name(cmd_parms* parms, void* mconfig, const char* w) {
+    struct oidfed_config* const cfg = ap_get_module_config(parms->server->module_config, &oidfed);
+    const size_t sz = sizeof(cfg->metadata.client_name);
+    if (strlcpy(cfg->metadata.client_name, w, sz) >= sz) {
+        return apr_psprintf(parms->pool, "OidfedSetClientName: value too long (max %lu)",
+                            (unsigned long) sz - 1);
+    }
+    return NULL;
+}
+
+const char*
+oidfed_cfg_set_organization_name(cmd_parms* parms, void* mconfig, const char* w) {
+    struct oidfed_config* const cfg = ap_get_module_config(parms->server->module_config, &oidfed);
+    const size_t sz = sizeof(cfg->metadata.organization_name);
+    if (strlcpy(cfg->metadata.organization_name, w, sz) >= sz) {
+        return apr_psprintf(parms->pool, "OidfedSetOrganizationName: value too long (max %lu)",
+                            (unsigned long) sz - 1);
+    }
+    return NULL;
+}
+
+const char*
+oidfed_cfg_set_logo_uri(cmd_parms* parms, void* mconfig, const char* w) {
+    struct oidfed_config* const cfg = ap_get_module_config(parms->server->module_config, &oidfed);
+    const size_t sz = sizeof(cfg->metadata.logo_uri);
+    if (strlcpy(cfg->metadata.logo_uri, w, sz) >= sz) {
+        return apr_psprintf(parms->pool, "OidfedSetLogoURI: value too long (max %lu)",
+                            (unsigned long) sz - 1);
+    }
+    return NULL;
+}
+
+const char*
+oidfed_cfg_add_client_reg_type(cmd_parms* parms, void* mconfig, const char* w) {
+    struct oidfed_config* const cfg = ap_get_module_config(parms->server->module_config, &oidfed);
+    if (cfg->metadata.client_registration_types_sz >= CONFIG_METADATA_CLIENT_REG_TYPES_MAX) {
+        return "OidfedAddClientRegistrationType: too many client registration types";
+    }
+    cfg->metadata.client_registration_types[cfg->metadata.client_registration_types_sz++] = apr_pstrdup(parms->pool, w);
+    return NULL;
+}
+
+const char*
+oidfed_cfg_add_response_type(cmd_parms* parms, void* mconfig, const char* w) {
+    struct oidfed_config* const cfg = ap_get_module_config(parms->server->module_config, &oidfed);
+    if (cfg->metadata.response_types_sz >= CONFIG_METADATA_RESPONSE_TYPES_MAX) {
+        return "OidfedAddResponseType: too many response types";
+    }
+    cfg->metadata.response_types[cfg->metadata.response_types_sz++] = apr_pstrdup(parms->pool, w);
+    return NULL;
+}
+
+const char*
+oidfed_cfg_add_grant_type(cmd_parms* parms, void* mconfig, const char* w) {
+    struct oidfed_config* const cfg = ap_get_module_config(parms->server->module_config, &oidfed);
+    if (cfg->metadata.grant_types_sz >= CONFIG_METADATA_GRANT_TYPES_MAX) {
+        return "OidfedAddGrantType: too many grant types";
+    }
+    cfg->metadata.grant_types[cfg->metadata.grant_types_sz++] = apr_pstrdup(parms->pool, w);
     return NULL;
 }
 
@@ -495,20 +579,24 @@ oidfed_worker_runtime_init(server_rec* sv, struct oidfed_config* config) {
     ap_log_error(APLOG_MARK, APLOG_INFO, 0, sv, "(worker:%d) creating entity metadata objects", getpid());
     runtime->rp_metadata = oidfedMetadataCreate(sv);
     struct oidfed_openid_relying_party_metadata rp = oidfedOpenIDRelyingPartyMetadataCreate(sv);
-    oidfedOpenIDRelyingPartyMetadataSetApplicationType(sv, rp, "web");
-    oidfedOpenIDRelyingPartyMetadataSetClientName(sv, rp, "apache-client");
-    oidfedOpenIDRelyingPartyMetadataSetOrganizationName(sv, rp, "demo");
-    oidfedOpenIDRelyingPartyMetadataSetClientRegistrationTypes(sv, rp, &(char*){(char*)"automatic"}, 1);
-    oidfedOpenIDRelyingPartyMetadataSetRedirectUris(sv, rp, &(char*){(char*)"https://localhost/oidc/rp/callback"}, 1);
-    oidfedOpenIDRelyingPartyMetadataSetResponseTypes(sv, rp, &(char*){(char*)"code"}, 1);
-    oidfedOpenIDRelyingPartyMetadataSetGrantTypes(sv, rp, &(char*){(char*)"authorization_code"}, 1);
-    oidfedOpenIDRelyingPartyMetadataSetLogoURI(sv, rp, "https://placehold.co/300x200");
+    oidfedOpenIDRelyingPartyMetadataSetApplicationType(sv, rp, config->metadata.application_type);
+    oidfedOpenIDRelyingPartyMetadataSetClientName(sv, rp, config->metadata.client_name);
+    oidfedOpenIDRelyingPartyMetadataSetOrganizationName(sv, rp, config->metadata.organization_name);
+    oidfedOpenIDRelyingPartyMetadataSetClientRegistrationTypes(sv, rp, config->metadata.client_registration_types,
+                                                               config->metadata.client_registration_types_sz);
+    oidfedOpenIDRelyingPartyMetadataSetRedirectUris(sv, rp, config->metadata.rp_redirect_uris,
+                                                    config->metadata.rp_redirect_uris_sz);
+    oidfedOpenIDRelyingPartyMetadataSetResponseTypes(sv, rp, config->metadata.response_types,
+                                                     config->metadata.response_types_sz);
+    oidfedOpenIDRelyingPartyMetadataSetGrantTypes(sv, rp, config->metadata.grant_types,
+                                                  config->metadata.grant_types_sz);
+    oidfedOpenIDRelyingPartyMetadataSetLogoURI(sv, rp, config->metadata.logo_uri);
     oidfedOpenIDRelyingPartyMetadataSetJWKSFromKeyStorage(sv, rp, runtime->federation_key_storage);
     oidfedMetadataSetRPMetadata(sv, runtime->rp_metadata, rp.impl);
 
     struct oidfed_federation_entity_metadata fe = oidfedFederationEntityMetadataCreate(sv);
-    oidfedFederationEntityMetadataSetLogoURI(sv, fe, "https://placehold.co/300x200");
-    oidfedFederationEntityMetadataSetOrganizationName(sv, fe, "demo");
+    oidfedFederationEntityMetadataSetLogoURI(sv, fe, config->metadata.logo_uri);
+    oidfedFederationEntityMetadataSetOrganizationName(sv, fe, config->metadata.organization_name);
     oidfedMetadataSetFederationEntityMetadata(sv, runtime->rp_metadata, fe.impl);
 
     runtime->leaf = oidfedFederationLeafCreate(sv, config->entity_id,
@@ -558,8 +646,22 @@ oidfed_config_init(struct oidfed_config* cfg) {
     strlcpy(cfg->metadata.fe_metadata_digest_alg, CONFIG_DEFAULT_METADATA_DIGEST_ALG,
             sizeof(cfg->metadata.fe_metadata_digest_alg));
 
-    cfg->metadata.rp_redirect_uris_sz = 0;
-    memset(cfg->metadata.rp_redirect_uris, 0, sizeof(cfg->metadata.rp_redirect_uris));
+    strlcpy(cfg->metadata.application_type, CONFIG_DEFAULT_APPLICATION_TYPE, sizeof(cfg->metadata.application_type));
+    strlcpy(cfg->metadata.client_name, CONFIG_DEFAULT_CLIENT_NAME, sizeof(cfg->metadata.client_name));
+    strlcpy(cfg->metadata.organization_name, CONFIG_DEFAULT_ORGANIZATION_NAME, sizeof(cfg->metadata.organization_name));
+    strlcpy(cfg->metadata.logo_uri, CONFIG_DEFAULT_LOGO_URI, sizeof(cfg->metadata.logo_uri));
+
+    cfg->metadata.client_registration_types_sz = CONFIG_DEFAULT_CLIENT_REG_TYPES_SZ;
+    cfg->metadata.client_registration_types[0] = CONFIG_DEFAULT_CLIENT_REG_TYPE;
+
+    cfg->metadata.rp_redirect_uris_sz = CONFIG_DEFAULT_REDIRECT_URIS_SZ;
+    cfg->metadata.rp_redirect_uris[0] = CONFIG_DEFAULT_REDIRECT_URI;
+
+    cfg->metadata.response_types_sz = CONFIG_DEFAULT_RESPONSE_TYPES_SZ;
+    cfg->metadata.response_types[0] = CONFIG_DEFAULT_RESPONSE_TYPE;
+
+    cfg->metadata.grant_types_sz = CONFIG_DEFAULT_GRANT_TYPES_SZ;
+    cfg->metadata.grant_types[0] = CONFIG_DEFAULT_GRANT_TYPE;
 
     cfg->trust_anchors_sz = 0;
     cfg->authority_hints_sz = 0;
