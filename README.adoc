@@ -1,0 +1,29 @@
+= mod_oidfed
+
+Apache2 module for
+
+== Building & installing
+
+For building _mod_oidfed_ you will need a reasonably up-to-date C and Go compilers/toolchains along with a Perl installation.
+For C you need any compiler that supports C11 or above, for Go you need `1.25.1`.
+Perl needed is `5.30` (or above), which should be available for most systems.
+
+[NOTE]
+====
+If you use the https://mise.jdx.dev/[mise] tool on your system, a _mise.toml_
+file is provided in the root of the project, but it does not install the C
+compiler.
+====
+
+If prerequisites are met, the following common incantations should install _mod_oidfed_ on your system.
+
+[source, shell]
+-----
+$ make
+$ make install <1>
+-----
+<1> This may need elevated privileges.
+
+== Configuration
+
+WIP
