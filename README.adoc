@@ -1,6 +1,6 @@
 = mod_oidfed
 
-Apache2 module for
+Apache2 module for handling OpenID Federation.
 
 == Building & installing
 
