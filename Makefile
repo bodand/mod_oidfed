@@ -27,6 +27,8 @@ all: lib_builds local-shared-build
 local-shared-build: lib_builds
 
 install: install-modules-yes
+	echo TODO: oidfed.css
+	echo TODO: oidfed_wrap.so
 
 clean: lib_cleans
 	-exec rm -f *.o mod_oidfed.lo mod_oidfed.slo mod_oidfed.la
