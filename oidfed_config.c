@@ -129,19 +129,20 @@ validate_key_file_perms(apr_pool_t* pool, const char* key_file) {
     );
 }
 
+#define SAFE_COPY_CONFIG(parms, name, config_field, value) \
+    struct oidfed_config* const cfg = ap_get_module_config(parms->server->module_config, &oidfed); \
+    const size_t entity_size = sizeof(cfg->config_field); \
+    if (strlcpy(cfg->config_field, value, entity_size) >= entity_size) { \
+        return apr_psprintf(parms->pool, \
+            name ": value too long (max %zu)",\
+            entity_size \
+        ); \
+    } \
+    return NULL;
+
 const char*
 oidfed_cfg_set_entity_id(cmd_parms* parms, void* mconfig, const char* w) {
-    struct oidfed_config* const cfg = ap_get_module_config(parms->server->module_config, &oidfed);
-
-    const size_t entity_size = sizeof(cfg->entity_id);
-    if (strlcpy(cfg->entity_id, w, entity_size) >= entity_size) {
-        return apr_psprintf(
-            parms->pool, "OidfedSetEntityId: value too long (max %lu)",
-            (unsigned long)entity_size - 1
-        );
-    }
-
-    return NULL;
+    SAFE_COPY_CONFIG(parms, "OidfedSetEntityId", entity_id, w);
 }
 
 const char*
@@ -177,46 +178,17 @@ oidfed_cfg_set_oidc_private_key(cmd_parms* parms, void* mconfig, const char* key
     const char* err = validate_key_file_perms(parms->temp_pool, key_file);
     if (err) return err;
 
-    struct oidfed_config* const config = ap_get_module_config(parms->server->module_config, &oidfed);
-    const size_t key_fname_size = sizeof(config->oidc_signing_key_file);
-    if (strlcpy(config->oidc_signing_key_file, key_file, key_fname_size) >= key_fname_size) {
-        return apr_psprintf(
-            parms->pool, "OidfedSetOidConnectSigningKey: value too long (max %lu)",
-            (unsigned long)key_fname_size - 1
-        );
-    }
-
-    return NULL;
+    SAFE_COPY_CONFIG(parms, "OidfedSetOidConnectSigningKey", oidc_signing_key_file, key_file);
 }
 
 const char*
 oidfged_cfg_set_oidc_signalg(cmd_parms* parms, void* mconfig, const char* w) {
-    struct oidfed_config* const cfg = ap_get_module_config(parms->server->module_config, &oidfed);
-
-    const size_t sz = sizeof(cfg->oidc_signing_alg);
-    if (strlcpy(cfg->oidc_signing_alg, w, sz) >= sz) {
-        return apr_psprintf(
-            parms->pool, "OidfedSetOidConnectSignatureAlgorithm: value too long (max %lu)",
-            (unsigned long)sz - 1
-        );
-    }
-
-    return NULL;
+    SAFE_COPY_CONFIG(parms, "OidfedSetOidConnectSignatureAlgorithm", oidc_signing_alg, w);
 }
 
 const char*
 oidfged_cfg_set_fed_signalg(cmd_parms* parms, void* mconfig, const char* w) {
-    struct oidfed_config* const cfg = ap_get_module_config(parms->server->module_config, &oidfed);
-
-    const size_t sz = sizeof(cfg->federation_signing_alg);
-    if (strlcpy(cfg->federation_signing_alg, w, sz) >= sz) {
-        return apr_psprintf(
-            parms->pool, "OidfedSetOidFederationSignatureAlgorithm: value too long (max %lu)",
-            (unsigned long)sz - 1
-        );
-    }
-
-    return NULL;
+    SAFE_COPY_CONFIG(parms, "OidfedSetOidFederationSignatureAlgorithm", federation_signing_alg, w);
 }
 
 static struct oidfed_filter_config**
@@ -297,94 +269,32 @@ type_too_long:
 
 const char*
 oidfed_cfg_set_rp_metadata_url(cmd_parms* parms, void* mconfig, const char* w) {
-    struct oidfed_config* const cfg = ap_get_module_config(parms->server->module_config, &oidfed);
-
-    const size_t meta_url_size = sizeof(cfg->metadata.rp_metadata_url);
-    if (strlcpy(cfg->metadata.rp_metadata_url, w, meta_url_size) >= meta_url_size) {
-        return apr_psprintf(
-            parms->pool, "OidfedSetRPMetadataURL: value too long (max %lu)",
-            (unsigned long)meta_url_size - 1
-        );
-    }
-
-    return NULL;
+    SAFE_COPY_CONFIG(parms, "OidfedSetRPMetadataURL", metadata.rp_metadata_url, w);
 }
 
 const char*
 oidfed_cfg_set_rp_metadata_digest(cmd_parms* parms, void* mconfig, const char* w) {
-    struct oidfed_config* const cfg = ap_get_module_config(parms->server->module_config, &oidfed);
-
-    const size_t digest_size = sizeof(cfg->metadata.rp_metadata_digest);
-    if (strlcpy(cfg->metadata.rp_metadata_digest, w, digest_size) >= digest_size) {
-        return apr_psprintf(
-            parms->pool, "OidfedSetRPMetadataDigest: value too long (max %lu)",
-            (unsigned long)digest_size - 1
-        );
-    }
-
-    return NULL;
+    SAFE_COPY_CONFIG(parms, "OidfedSetRPMetadataDigest", metadata.rp_metadata_digest, w);
 }
 
 const char*
 oidfed_cfg_set_rp_metadata_digest_alg(cmd_parms* parms, void* mconfig, const char* w) {
-    struct oidfed_config* const cfg = ap_get_module_config(parms->server->module_config, &oidfed);
-
-    const size_t digest_alg_size = sizeof(cfg->metadata.rp_metadata_digest_alg);
-    if (strlcpy(cfg->metadata.rp_metadata_digest_alg, w, digest_alg_size) >= digest_alg_size) {
-        return apr_psprintf(
-            parms->pool,
-            "OidfedSetRPMetadataDigestAlgorithm: value too long (max %lu)",
-            (unsigned long)digest_alg_size - 1
-        );
-    }
-
-    return NULL;
+    SAFE_COPY_CONFIG(parms, "OidfedSetRPMetadataDigestAlgorithm", metadata.rp_metadata_digest_alg, w);
 }
 
 const char*
 oidfed_cfg_set_fe_metadata_url(cmd_parms* parms, void* mconfig, const char* w) {
-    struct oidfed_config* const cfg = ap_get_module_config(parms->server->module_config, &oidfed);
-
-    const size_t meta_url_size = sizeof(cfg->metadata.fe_metadata_url);
-    if (strlcpy(cfg->metadata.fe_metadata_url, w, meta_url_size) >= meta_url_size) {
-        return apr_psprintf(
-            parms->pool, "OidfedSetFEMetadataURL: value too long (max %lu)",
-            (unsigned long)meta_url_size - 1
-        );
-    }
-
-    return NULL;
+    SAFE_COPY_CONFIG(parms, "OidfedSetRPMetadataDigestAlgorithm", metadata.rp_metadata_digest_alg, w);
 }
 
 const char*
 oidfed_cfg_set_fe_metadata_digest(cmd_parms* parms, void* mconfig, const char* w) {
-    struct oidfed_config* const cfg = ap_get_module_config(parms->server->module_config, &oidfed);
-
-    const size_t meta_digest_size = sizeof(cfg->metadata.fe_metadata_digest);
-    if (strlcpy(cfg->metadata.fe_metadata_digest, w, meta_digest_size) >= meta_digest_size) {
-        return apr_psprintf(
-            parms->pool, "OidfedSetFEMetadataDigest: value too long (max %lu)",
-            (unsigned long)meta_digest_size - 1
-        );
-    }
-
-    return NULL;
+    SAFE_COPY_CONFIG(parms, "OidfedSetFEMetadataDigestAlgorithm", metadata.fe_metadata_digest_alg, w);
 }
 
 const char*
 oidfed_cfg_set_fe_metadata_digest_alg(cmd_parms* parms, void* mconfig, const char* w) {
-    struct oidfed_config* const cfg = ap_get_module_config(parms->server->module_config, &oidfed);
-
-    char* digest_alg = cfg->metadata.fe_metadata_digest_alg;
-    const size_t meta_digest_alg_size = sizeof cfg->metadata.fe_metadata_digest_alg;
-    if (strlcpy(digest_alg, w, meta_digest_alg_size) >= meta_digest_alg_size) {
-        return apr_psprintf(
-            parms->pool,
-            "OidfedSetFEMetadataDigestAlgorithm: value too long (max %lu)",
-            (unsigned long)meta_digest_alg_size - 1
-        );
-    }
-    return NULL;
+    SAFE_COPY_CONFIG(parms, "OidfedSetFEMetadataDigestAlgorithm", metadata.fe_metadata_digest_alg, w);
 }
 
 const char*
@@ -399,54 +309,22 @@ oidfed_cfg_add_rp_redirect_uri(cmd_parms* parms, void* mconfig, const char* w) {
 
 const char*
 oidfed_cfg_set_application_type(cmd_parms* parms, void* mconfig, const char* w) {
-    struct oidfed_config* const cfg = ap_get_module_config(parms->server->module_config, &oidfed);
-    const size_t sz = sizeof(cfg->metadata.application_type);
-    if (strlcpy(cfg->metadata.application_type, w, sz) >= sz) {
-        return apr_psprintf(
-            parms->pool, "OidfedSetApplicationType: value too long (max %lu)",
-            (unsigned long)sz - 1
-        );
-    }
-    return NULL;
+    SAFE_COPY_CONFIG(parms, "OidfedSetApplicationType", metadata.application_type, w);
 }
 
 const char*
 oidfed_cfg_set_client_name(cmd_parms* parms, void* mconfig, const char* w) {
-    struct oidfed_config* const cfg = ap_get_module_config(parms->server->module_config, &oidfed);
-    const size_t sz = sizeof(cfg->metadata.client_name);
-    if (strlcpy(cfg->metadata.client_name, w, sz) >= sz) {
-        return apr_psprintf(
-            parms->pool, "OidfedSetClientName: value too long (max %lu)",
-            (unsigned long)sz - 1
-        );
-    }
-    return NULL;
+    SAFE_COPY_CONFIG(parms, "OidfedSetClientName", metadata.client_name, w);
 }
 
 const char*
 oidfed_cfg_set_organization_name(cmd_parms* parms, void* mconfig, const char* w) {
-    struct oidfed_config* const cfg = ap_get_module_config(parms->server->module_config, &oidfed);
-    const size_t sz = sizeof(cfg->metadata.organization_name);
-    if (strlcpy(cfg->metadata.organization_name, w, sz) >= sz) {
-        return apr_psprintf(
-            parms->pool, "OidfedSetOrganizationName: value too long (max %lu)",
-            (unsigned long)sz - 1
-        );
-    }
-    return NULL;
+    SAFE_COPY_CONFIG(parms, "OidfedSetOrganizationName", metadata.organization_name, w);
 }
 
 const char*
 oidfed_cfg_set_logo_uri(cmd_parms* parms, void* mconfig, const char* w) {
-    struct oidfed_config* const cfg = ap_get_module_config(parms->server->module_config, &oidfed);
-    const size_t sz = sizeof(cfg->metadata.logo_uri);
-    if (strlcpy(cfg->metadata.logo_uri, w, sz) >= sz) {
-        return apr_psprintf(
-            parms->pool, "OidfedSetLogoURI: value too long (max %lu)",
-            (unsigned long)sz - 1
-        );
-    }
-    return NULL;
+    SAFE_COPY_CONFIG(parms, "OidfedSetLogoURI", metadata.logo_uri, w);
 }
 
 const char*
@@ -526,6 +404,62 @@ slurp_file(apr_pool_t* pool, const char* path, char** out_chars, size_t* out_cha
     return 0;
 }
 
+static const char*
+try_load_key_from_file(server_rec* sv,
+                       const char* path,
+                       const char* key_type,
+                       struct oidfed_signer* signer) {
+    char* chars = NULL;
+    size_t chars_sz = 0;
+    int errc = slurp_file(sv->process->pool, path, &chars, &chars_sz);
+    if (errc != 0) {
+        explicit_bzero(chars, chars_sz);
+        return apr_psprintf(
+            sv->process->pool, "Failed to load %s key: error %d: %s",
+            key_type,
+            errc,
+            strerror(errc)
+        );
+    }
+
+    // Remember to explicitly purge key from memory regardless of success after
+    // this call
+    *signer = oidfedSignerCreateFromPEM(sv, chars, chars_sz, &errc);
+    explicit_bzero(chars, chars_sz);
+    if (errc != 0) {
+        return apr_psprintf(
+            sv->process->pool, "Failed to load %s key: error %d: error in go runtime",
+            key_type,
+            errc
+        );
+    }
+    return NULL;
+}
+
+static const char*
+try_load_signing_algorithm(server_rec* sv,
+                           char* alg,
+                           const char* alg_type,
+                           struct oidfed_signature_algorithm* out_alg) {
+    ap_log_error(
+        APLOG_MARK, APLOG_DEBUG, 0, sv,
+        "(worker:%d) finding signing algorithm for %s: %s",
+        getpid(), alg_type, alg
+    );
+    bool succ = false;
+    *out_alg = oidfedSignatureAlgorithmGet(
+        sv, alg, &succ
+    );
+    if (!succ) {
+        return apr_psprintf(
+            sv->process->pool, "Failed to load %s signing key: unknown signature algorithm: %s",
+            alg_type,
+            alg
+        );
+    }
+    return NULL;
+}
+
 void
 oidfed_worker_runtime_init(server_rec* sv, struct oidfed_config* config) {
     ap_log_error(APLOG_MARK, APLOG_INFO, 0, sv, "(worker:%d) initiating worker", getpid());
@@ -561,78 +495,42 @@ oidfed_worker_runtime_init(server_rec* sv, struct oidfed_config* config) {
         config_filter_append(sv, config, it, &runtime->filter);
     }
 
-    int errc = 0;
-    char* chars = NULL;
-    size_t chars_sz = 0;
-    errc = slurp_file(sv->process->pool, config->federation_signing_key_file, &chars, &chars_sz);
-    if (errc != 0) {
-        explicit_bzero(chars, chars_sz);
-        ap_log_error(
-            APLOG_MARK, APLOG_ERR, 0, sv, "Failed to load federation signing key: error %d: %s",
-            errc,
-            strerror(errc)
-        );
-        return;
-    }
+    const char* error_str = 0;
 
-    const struct oidfed_signer fed_signer = oidfedSignerCreateFromPEM(sv, chars, chars_sz, &errc);
-    explicit_bzero(chars, chars_sz);
-    if (errc != 0) {
-        ap_log_error(APLOG_MARK, APLOG_ERR, 0, sv, "Failed to load federation signing key: error %d", errc);
-        return;
-    }
-
-    chars = NULL;
-    chars_sz = 0;
-    errc = slurp_file(sv->process->pool, config->oidc_signing_key_file, &chars, &chars_sz);
-    if (errc != 0) {
-        explicit_bzero(chars, chars_sz);
-        ap_log_error(
-            APLOG_MARK, APLOG_ERR, 0, sv, "Failed to load federation signing key: error %d: %s",
-            errc,
-            strerror(errc)
-        );
-        return;
-    }
-
-    const struct oidfed_signer oidc_signer = oidfedSignerCreateFromPEM(sv, chars, chars_sz, &errc);
-    explicit_bzero(chars, chars_sz);
-    if (errc != 0) {
-        ap_log_error(APLOG_MARK, APLOG_ERR, 0, sv, "Failed to load oidc signing key: error code %d", errc);
-        return;
-    }
-
-    ap_log_error(
-        APLOG_MARK, APLOG_INFO, 0, sv, "(worker:%d) finding signing algorithm for federation: %s",
-        getpid(),
-        config->federation_signing_alg
+    struct oidfed_signer fed_signer;
+    error_str = try_load_key_from_file(
+        sv,
+        config->federation_signing_key_file,
+        "federation",
+        &fed_signer
     );
-    bool succ = false;
-    runtime->federation_signing_alg = oidfedSignatureAlgorithmGet(
-        sv, config->federation_signing_alg, &succ
-    );
-    if (!succ) {
-        ap_log_error(
-            APLOG_MARK, APLOG_ERR, 0, sv,
-            "Failed to load oidc signing key: unknown signature algorithm: %s",
-            config->federation_signing_alg
-        );
+    if (error_str) {
+        ap_log_error(APLOG_MARK, APLOG_ERR, 0, sv, "%s", error_str);
         return;
     }
 
-    ap_log_error(
-        APLOG_MARK, APLOG_INFO, 0, sv, "(worker:%d) finding signing algorithm for oidc: %s",
-        getpid(),
-        config->oidc_signing_alg
+    struct oidfed_signer oidc_signer;
+    error_str = try_load_key_from_file(
+        sv,
+        config->oidc_signing_key_file,
+        "oidc",
+        &oidc_signer
     );
-    succ = false;
-    runtime->oidc_signing_alg = oidfedSignatureAlgorithmGet(sv, config->oidc_signing_alg, &succ);
-    if (!succ) {
-        ap_log_error(
-            APLOG_MARK, APLOG_ERR, 0, sv,
-            "Failed to load oidc signing key: unknown signature algorithm: %s",
-            config->oidc_signing_alg
-        );
+    if (error_str) {
+        ap_log_error(APLOG_MARK, APLOG_ERR, 0, sv, "%s", error_str);
+        return;
+    }
+
+    error_str = try_load_signing_algorithm(
+        sv, config->federation_signing_alg, "federation", &runtime->federation_signing_alg
+    );
+    if (error_str) {
+        ap_log_error(APLOG_MARK, APLOG_ERR, 0, sv, "%s", error_str);
+        return;
+    }
+    error_str = try_load_signing_algorithm(sv, config->oidc_signing_alg, "oidc", &runtime->oidc_signing_alg);
+    if (error_str) {
+        ap_log_error(APLOG_MARK, APLOG_ERR, 0, sv, "%s", error_str);
         return;
     }
 
@@ -661,7 +559,7 @@ oidfed_worker_runtime_init(server_rec* sv, struct oidfed_config* config) {
 
     ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, sv, "(worker:%d) creating entity metadata objects", getpid());
     runtime->rp_metadata = oidfedMetadataCreate(sv);
-    struct oidfed_openid_relying_party_metadata rp = oidfedOpenIDRelyingPartyMetadataCreate(sv);
+    const struct oidfed_openid_relying_party_metadata rp = oidfedOpenIDRelyingPartyMetadataCreate(sv);
     oidfedOpenIDRelyingPartyMetadataSetApplicationType(sv, rp, config->metadata.application_type);
     oidfedOpenIDRelyingPartyMetadataSetClientName(sv, rp, config->metadata.client_name);
     oidfedOpenIDRelyingPartyMetadataSetOrganizationName(sv, rp, config->metadata.organization_name);
@@ -685,11 +583,12 @@ oidfed_worker_runtime_init(server_rec* sv, struct oidfed_config* config) {
     oidfedOpenIDRelyingPartyMetadataSetJWKSFromKeyStorage(sv, rp, runtime->federation_key_storage);
     oidfedMetadataSetRPMetadata(sv, runtime->rp_metadata, rp.impl);
 
-    struct oidfed_federation_entity_metadata fe = oidfedFederationEntityMetadataCreate(sv);
-    oidfedFederationEntityMetadataSetLogoURI(sv, fe, config->metadata.logo_uri);
-    oidfedFederationEntityMetadataSetOrganizationName(sv, fe, config->metadata.organization_name);
-    oidfedMetadataSetFederationEntityMetadata(sv, runtime->rp_metadata, fe.impl);
+    const struct oidfed_federation_entity_metadata entity = oidfedFederationEntityMetadataCreate(sv);
+    oidfedFederationEntityMetadataSetLogoURI(sv, entity, config->metadata.logo_uri);
+    oidfedFederationEntityMetadataSetOrganizationName(sv, entity, config->metadata.organization_name);
+    oidfedMetadataSetFederationEntityMetadata(sv, runtime->rp_metadata, entity.impl);
 
+    int errc = 0;
     runtime->leaf = oidfedFederationLeafCreate(
         sv, config->entity_id,
         0, 0,
