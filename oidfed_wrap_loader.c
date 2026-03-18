@@ -33,13 +33,16 @@
         void* dynlib = NULL; \
         apr_pool_userdata_get(&dynlib, OIDFED_WORKER_DYNLIB_HANDLE, datapool); \
         if (UNLIKELY(dynlib == NULL)) { \
-            logger(APLOG_MARK, APLOG_EMERG, __VA_ARGS__, "oidfedWrap called without initialization!"); \
+            logger(APLOG_MARK, APLOG_EMERG, __VA_ARGS__, \
+                        "oidfedWrap: symbol called without initialization! " \
+                        "This is likely a result of earlier errors."); \
             assert(false && "module invariant broken: oidfed_worker_init() not called"); \
         } \
         void* sym = dlsym(dynlib, APR_STRINGIFY(fn)); \
         if (UNLIKELY(!sym)) { \
             logger(APLOG_MARK, APLOG_EMERG, __VA_ARGS__, \
-                "oidfedWrap: symbol '%s' is not found in wrap library.", \
+                "oidfedWrap: symbol '%s' is not found in wrap library. " \
+                "This is likely a result of a currepted or drifted installation.", \
                 APR_STRINGIFY(fn)); \
             assert(false && "module invariant broken: incompatible wrap library found"); \
         } \
