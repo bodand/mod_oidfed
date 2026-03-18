@@ -107,8 +107,6 @@ oidfed_cfg_login_url(cmd_parms* parms, void* cfg, const char* url) {
     return NULL;
 }
 
-#define ERROR_STR_HOLDER_SZ 512
-
 static const char*
 validate_key_file_perms(apr_pool_t* pool, const char* key_file) {
     struct stat file_stat = {};
@@ -129,6 +127,32 @@ validate_key_file_perms(apr_pool_t* pool, const char* key_file) {
         key_file,
         perms
     );
+}
+
+const char*
+oidfed_cfg_set_entity_id(cmd_parms* parms, void* mconfig, const char* w) {
+    struct oidfed_config* const cfg = ap_get_module_config(parms->server->module_config, &oidfed);
+
+    const size_t entity_size = sizeof(cfg->entity_id);
+    if (strlcpy(cfg->entity_id, w, entity_size) >= entity_size) {
+        return apr_psprintf(
+            parms->pool, "OidfedSetEntityId: value too long (max %lu)",
+            (unsigned long)entity_size - 1
+        );
+    }
+
+    return NULL;
+}
+
+const char*
+oidfed_cfg_add_authority_hint(cmd_parms* parms, void* mconfig, const char* w) {
+    struct oidfed_config* const cfg = ap_get_module_config(parms->server->module_config, &oidfed);
+    if (cfg->authority_hints_sz == CONFIG_AUTHORITY_HINTS_MAX)
+        return "Too many authority hints in configuration";
+
+    cfg->authority_hints[cfg->authority_hints_sz++] = apr_pstrdup(parms->pool, w);
+
+    return NULL;
 }
 
 const char*
@@ -195,42 +219,22 @@ oidfged_cfg_set_fed_signalg(cmd_parms* parms, void* mconfig, const char* w) {
     return NULL;
 }
 
-static bool
-str_empty(const char* str) {
-    return str[0] == '\0';
-}
-
-const char*
-oidfed_cfg_set_entity_id(cmd_parms* parms, void* mconfig, const char* w) {
-    struct oidfed_config* const cfg = ap_get_module_config(parms->server->module_config, &oidfed);
-
-    const size_t entity_size = sizeof(cfg->entity_id);
-    if (strlcpy(cfg->entity_id, w, entity_size) >= entity_size) {
-        return apr_psprintf(
-            parms->pool, "OidfedSetEntityId: value too long (max %lu)",
-            (unsigned long)entity_size - 1
-        );
-    }
-
-    return NULL;
-}
-
-const char*
-oidfed_cfg_add_authority_hint(cmd_parms* parms, void* mconfig, const char* w) {
-    struct oidfed_config* const cfg = ap_get_module_config(parms->server->module_config, &oidfed);
-    if (cfg->authority_hints_sz == CONFIG_AUTHORITY_HINTS_MAX)
-        return "Too many authority hints in configuration";
-
-    cfg->authority_hints[cfg->authority_hints_sz++] = apr_pstrdup(parms->pool, w);
-
-    return NULL;
-}
-
 static struct oidfed_filter_config**
 filter_list_end(struct oidfed_config* cfg) {
     struct oidfed_filter_config** filter_list = &cfg->filters;
     while (*filter_list) filter_list = &((*filter_list)->next);
     return filter_list;
+}
+
+const char*
+oidfed_cfg_add_trust_anchor(cmd_parms* parms, void* cfg, const char* entity_id) {
+    struct oidfed_config* const config = ap_get_module_config(parms->server->module_config, &oidfed);
+    if (config->trust_anchors_sz == CONFIG_TRUST_ANCHORS_MAX)
+        return "Too many trust anchors in configuration";
+
+    config->trust_anchors[config->trust_anchors_sz++] = apr_pstrdup(parms->pool, entity_id);
+
+    return NULL;
 }
 
 const char*
@@ -289,17 +293,6 @@ type_too_long:
         parms->pool, "OidfedAddOPFilterChain: filter type too long (max %lu)",
         type_size - 1
     );
-}
-
-const char*
-oidfed_cfg_add_trust_anchor(cmd_parms* parms, void* cfg, const char* entity_id) {
-    struct oidfed_config* const config = ap_get_module_config(parms->server->module_config, &oidfed);
-    if (config->trust_anchors_sz == CONFIG_TRUST_ANCHORS_MAX)
-        return "Too many trust anchors in configuration";
-
-    config->trust_anchors[config->trust_anchors_sz++] = apr_pstrdup(parms->pool, entity_id);
-
-    return NULL;
 }
 
 const char*
