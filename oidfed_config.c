@@ -589,9 +589,14 @@ oidfed_worker_runtime_init(server_rec* sv, struct oidfed_config* config) {
     oidfedMetadataSetFederationEntityMetadata(sv, runtime->rp_metadata, entity.impl);
 
     int errc = 0;
+	 const char** ta_names = apr_palloc(sv->process->pool, sizeof(char*) * runtime->trust_anchors_sz);
+	 for (size_t i = 0; i < runtime->trust_anchors_sz; ++i) {
+		 ta_names[i] = runtime->trust_anchors[i].entity_id;
+	 }
+
     runtime->leaf = oidfedFederationLeafCreate(
         sv, config->entity_id,
-        0, 0,
+        (char**)ta_names, runtime->trust_anchors_sz,
         runtime->trust_anchors, runtime->trust_anchors_sz,
         runtime->federation_signer,
         runtime->oidc_signer,
