@@ -1,7 +1,7 @@
 #ifndef OIDFED_OIDFED_WRAP_LOADER_H
 #define OIDFED_OIDFED_WRAP_LOADER_H
 
-#include <httpd/httpd.h>
+#include <httpd.h>
 
 #include <oidfed_config_fwd.h>
 #include <oidfed_wrap_lib.h>

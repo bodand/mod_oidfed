@@ -1,6 +1,6 @@
 builddir=.
-top_srcdir=../../../usr/share/apache/webroot
-top_builddir=../../../usr/share/apache/webroot
+top_srcdir=../../../usr/share/apache2
+top_builddir=../../../usr/share/apache2
 
 SRC = oidfed_wrap_loader.c oidfed_config.c oidfed_req_handler.c
 OBJ = ${SRC:%.c=%.lo}

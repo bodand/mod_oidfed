@@ -462,8 +462,8 @@ try_load_signing_algorithm(server_rec* sv,
 
 void
 oidfed_worker_runtime_init(server_rec* sv, struct oidfed_config* config) {
-    ap_log_error(APLOG_MARK, APLOG_INFO, 0, sv, "(worker:%d) initiating worker", getpid());
-    assert(config->worker_cfg.runtime == 0 && "Runtime already initialized");
+    ap_log_error(APLOG_MARK, APLOG_INFO, 0, sv, "(worker:%d) initiating worker (%d:%d)", getpid(), getuid(), getgid());
+    if (config->worker_cfg.runtime != 0) return;
 
     struct oidfed_worker_runtime* runtime =
             config->worker_cfg.runtime =
