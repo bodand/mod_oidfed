@@ -92,7 +92,7 @@ config_filter_append(server_rec* sv,
 const char*
 oidfed_cfg_wrap_lazy(cmd_parms* parms, void* mconfig, int on) {
     struct oidfed_config* const config = ap_get_module_config(parms->server->module_config, &oidfed);
-    config->worker_cfg.lazy_load_symbols = (bool)on;
+    config->worker_cfg.lazy_load_symbols = (bool) on;
     return NULL;
 }
 
@@ -166,7 +166,7 @@ oidfed_cfg_set_fed_private_key(cmd_parms* parms, void* cfg, const char* key_file
     if (strlcpy(config->federation_signing_key_file, key_file, sign_fname_size) >= sign_fname_size) {
         return apr_psprintf(
             parms->pool, "OidfedSetOidFederationSigningKey: value too long (max %lu)",
-            (unsigned long)sign_fname_size - 1
+            (unsigned long) sign_fname_size - 1
         );
     }
 
@@ -284,12 +284,12 @@ oidfed_cfg_set_rp_metadata_digest_alg(cmd_parms* parms, void* mconfig, const cha
 
 const char*
 oidfed_cfg_set_fe_metadata_url(cmd_parms* parms, void* mconfig, const char* w) {
-    SAFE_COPY_CONFIG(parms, "OidfedSetRPMetadataDigestAlgorithm", metadata.rp_metadata_digest_alg, w);
+    SAFE_COPY_CONFIG(parms, "OidfedSetFEMetadataURL", metadata.fe_metadata_url, w);
 }
 
 const char*
 oidfed_cfg_set_fe_metadata_digest(cmd_parms* parms, void* mconfig, const char* w) {
-    SAFE_COPY_CONFIG(parms, "OidfedSetFEMetadataDigestAlgorithm", metadata.fe_metadata_digest_alg, w);
+    SAFE_COPY_CONFIG(parms, "OidfedSetFEMetadataDigest", metadata.fe_metadata_digest, w);
 }
 
 const char*
@@ -389,7 +389,7 @@ slurp_file(apr_pool_t* pool, const char* path, char** out_chars, size_t* out_cha
             char* const old_ret = ret;
             const size_t old_alloc_sz = alloc_sz;
 
-            alloc_sz = (size_t)((double)alloc_sz * 1.5);
+            alloc_sz = (size_t) ((double) alloc_sz * 1.5);
             ret = apr_pcalloc(pool, alloc_sz);
             memcpy(ret, old_ret, old_alloc_sz);
             explicit_bzero(old_ret, old_alloc_sz);
@@ -567,10 +567,6 @@ oidfed_worker_runtime_init(server_rec* sv, struct oidfed_config* config) {
         sv, rp, config->metadata.client_registration_types,
         config->metadata.client_registration_types_sz
     );
-    oidfedOpenIDRelyingPartyMetadataSetRedirectUris(
-        sv, rp, config->metadata.rp_redirect_uris,
-        config->metadata.rp_redirect_uris_sz
-    );
     oidfedOpenIDRelyingPartyMetadataSetResponseTypes(
         sv, rp, config->metadata.response_types,
         config->metadata.response_types_sz
@@ -581,6 +577,13 @@ oidfed_worker_runtime_init(server_rec* sv, struct oidfed_config* config) {
     );
     oidfedOpenIDRelyingPartyMetadataSetLogoURI(sv, rp, config->metadata.logo_uri);
     oidfedOpenIDRelyingPartyMetadataSetJWKSFromKeyStorage(sv, rp, runtime->federation_key_storage);
+
+    char** redir_uris = apr_palloc(sv->process->pool, sizeof(char*) * config->metadata.rp_redirect_uris_sz);
+    for (size_t i = 0; i < config->metadata.rp_redirect_uris_sz; ++i) {
+        redir_uris[i] = apr_pstrcat(sv->process->pool, config->entity_id, config->metadata.rp_redirect_uris[i], NULL);
+    }
+    oidfedOpenIDRelyingPartyMetadataSetRedirectUris(sv, rp, redir_uris, config->metadata.rp_redirect_uris_sz);
+
     oidfedMetadataSetRPMetadata(sv, runtime->rp_metadata, rp.impl);
 
     const struct oidfed_federation_entity_metadata entity = oidfedFederationEntityMetadataCreate(sv);
@@ -589,10 +592,10 @@ oidfed_worker_runtime_init(server_rec* sv, struct oidfed_config* config) {
     oidfedMetadataSetFederationEntityMetadata(sv, runtime->rp_metadata, entity.impl);
 
     int errc = 0;
-	 const char** ta_names = apr_palloc(sv->process->pool, sizeof(char*) * runtime->trust_anchors_sz);
-	 for (size_t i = 0; i < runtime->trust_anchors_sz; ++i) {
-		 ta_names[i] = runtime->trust_anchors[i].entity_id;
-	 }
+    const char** ta_names = apr_palloc(sv->process->pool, sizeof(char*) * runtime->trust_anchors_sz);
+    for (size_t i = 0; i < runtime->trust_anchors_sz; ++i) {
+        ta_names[i] = runtime->trust_anchors[i].entity_id;
+    }
 
     runtime->leaf = oidfedFederationLeafCreate(
         sv, config->entity_id,
@@ -654,16 +657,15 @@ oidfed_config_init(struct oidfed_config* cfg) {
     strlcpy(cfg->metadata.organization_name, CONFIG_DEFAULT_ORGANIZATION_NAME, sizeof(cfg->metadata.organization_name));
     strlcpy(cfg->metadata.logo_uri, CONFIG_DEFAULT_LOGO_URI, sizeof(cfg->metadata.logo_uri));
 
-    cfg->metadata.client_registration_types_sz = CONFIG_DEFAULT_CLIENT_REG_TYPES_SZ;
+    cfg->metadata.client_registration_types_sz = 1;
     cfg->metadata.client_registration_types[0] = CONFIG_DEFAULT_CLIENT_REG_TYPE;
 
-    cfg->metadata.rp_redirect_uris_sz = CONFIG_DEFAULT_REDIRECT_URIS_SZ;
-    cfg->metadata.rp_redirect_uris[0] = CONFIG_DEFAULT_REDIRECT_URI;
+    cfg->metadata.rp_redirect_uris_sz = 0;
 
-    cfg->metadata.response_types_sz = CONFIG_DEFAULT_RESPONSE_TYPES_SZ;
+    cfg->metadata.response_types_sz = 1;
     cfg->metadata.response_types[0] = CONFIG_DEFAULT_RESPONSE_TYPE;
 
-    cfg->metadata.grant_types_sz = CONFIG_DEFAULT_GRANT_TYPES_SZ;
+    cfg->metadata.grant_types_sz = 1;
     cfg->metadata.grant_types[0] = CONFIG_DEFAULT_GRANT_TYPE;
 
     cfg->trust_anchors_sz = 0;

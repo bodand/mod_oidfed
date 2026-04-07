@@ -48,21 +48,9 @@
 #define CONFIG_DEFAULT_CLIENT_REG_TYPE "automatic"
 #define CONFIG_DEFAULT_RESPONSE_TYPE "code"
 #define CONFIG_DEFAULT_GRANT_TYPE "authorization_code"
-#define CONFIG_DEFAULT_REDIRECT_URI "https://localhost/oidc/rp/callback"
+#define CONFIG_DEFAULT_REDIRECT_PATH "/callback"
 
 #define OIDFED_WELL_KNOWN_PATH "/.well-known/openid-federation"
-
-#define CONFIG_DEFAULT_METADATA_URL_SZ 1
-#define CONFIG_DEFAULT_METADATA_DIGEST_SZ 1
-#define CONFIG_DEFAULT_METADATA_DIGEST_ALG_SZ 1
-#define CONFIG_DEFAULT_APPLICATION_TYPE_SZ 1
-#define CONFIG_DEFAULT_CLIENT_NAME_SZ 1
-#define CONFIG_DEFAULT_ORGANIZATION_NAME_SZ 1
-#define CONFIG_DEFAULT_LOGO_URI_SZ 1
-#define CONFIG_DEFAULT_CLIENT_REG_TYPES_SZ 1
-#define CONFIG_DEFAULT_RESPONSE_TYPES_SZ 1
-#define CONFIG_DEFAULT_GRANT_TYPES_SZ 1
-#define CONFIG_DEFAULT_REDIRECT_URIS_SZ 1
 
 // RUNTIME CONFIGURATION //
 
@@ -325,7 +313,7 @@ static const command_rec oidfed_cmds[] = {
     AP_INIT_TAKE1("OidfedSetFEMetadataDigestAlgorithm", oidfed_cfg_set_fe_metadata_digest_alg, NULL, RSRC_CONF,
                   "Set the Federation Entity Metadata Digest Algorithm"),
     AP_INIT_TAKE1("OidfedAddRPRedirectURI", oidfed_cfg_add_rp_redirect_uri, NULL, RSRC_CONF,
-                  "Add a redirect URI to the Relying Party metadata"),
+                  "Add a redirect URI (as path relative to entity-id) to the Relying Party metadata"),
     AP_INIT_TAKE1("OidfedSetApplicationType", oidfed_cfg_set_application_type, NULL, RSRC_CONF,
                   "Set the Application Type in metadata"),
     AP_INIT_TAKE1("OidfedSetClientName", oidfed_cfg_set_client_name, NULL, RSRC_CONF,
