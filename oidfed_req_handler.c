@@ -48,7 +48,8 @@ construct_auth_url(request_rec* r, const struct oidfed_config* config,
     oidfMapSetString(r, request_values, "scope", "openid");
     oidfMapSetString(r, request_values, "aud", issuer);
     if (config->metadata.rp_redirect_uris_sz > 0) {
-        oidfMapSetString(r, request_values, "redirect_uri", config->metadata.rp_redirect_uris[0]);
+        char* req_redir = apr_pstrcat(r->pool, config->entity_id, config->metadata.rp_redirect_uris[0], NULL);
+        oidfMapSetString(r, request_values, "redirect_uri", req_redir);
     }
 
     // XXX - unsafe random
