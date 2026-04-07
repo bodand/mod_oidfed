@@ -1,6 +1,8 @@
-builddir=.
-top_srcdir=../../../usr/share/apache2
-top_builddir=../../../usr/share/apache2
+include config.mk
+
+builddir     = .
+top_srcdir   = ${apxs_exp_datadir}
+top_builddir = ${apxs_exp_datadir}
 
 SRC = oidfed_wrap_loader.c oidfed_config.c oidfed_req_handler.c
 OBJ = ${SRC:%.c=%.lo}
@@ -45,3 +47,5 @@ restart:
 stop:
 	$(APACHECTL) stop
 
+config.mk: Makefile
+	apxs -q | sed -e 's,^,apxs_,' -e 's,$${,$${apxs_,g' >$@

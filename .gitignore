@@ -4,4 +4,4 @@
 *.slo
 *.so
 .libs/
-
+config.mk
