@@ -1,0 +1,3 @@
+#!/bin/sh
+
+exec apxs -q | sed -e 's,^,apxs_,' -e 's,$${,$${apxs_,g' >config.mk

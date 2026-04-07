@@ -1,3 +1,8 @@
+CHECK_CONFIG := $(shell if [ ! -f config.mk ] || [ Makefile -nt config.mk ]; then echo "error"; fi)
+
+ifeq ($(CHECK_CONFIG),error)
+  $(error "config.mk missing or older than Makefile, rerun ./configure")
+endif
 include config.mk
 
 builddir     = .
@@ -19,7 +24,7 @@ oidfed_config.slo: oidfed_config.h
 oidfed_req_handler.slo: oidfed_config.h oidfed_wrap_loader.h oidfed_req_handler.h
 oidfed_wrap_loader.slo: oidfed_config.h oidfed_wrap_loader.h oidfed_wrap_loader.gen.h oidfed_wrap_loader.gen.c
 
-oidfed_wrap_loader.gen.c oidfed_wrap_loader.gen.h: make-loader.pl lib_builds
+oidfed_wrap_loader.gen.c oidfed_wrap_loader.gen.h: make-loader.pl deps/oidfed_wrap/lib/include/oidfed_wrap_lib.h
 	exec perl make-loader.pl deps/oidfed_wrap/lib/include/oidfed_wrap_lib.h
 
 APACHECTL=apachectl
@@ -46,6 +51,3 @@ restart:
 	$(APACHECTL) restart
 stop:
 	$(APACHECTL) stop
-
-config.mk: Makefile
-	apxs -q | sed -e 's,^,apxs_,' -e 's,$${,$${apxs_,g' >$@
