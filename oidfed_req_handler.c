@@ -380,7 +380,7 @@ req_redirect_handler(const struct oidfed_config* config, request_rec* r) {
 
     // Retrieve OP identifier from state.
     char* op_id = apr_pstrdup(r->pool, state);
-    char* sep = strchr(op_id, ':');
+    char* sep = strrchr(op_id, ':');
     const char* state_bits = NULL;
     if (sep) {
         *sep = '\0';
