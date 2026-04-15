@@ -10,6 +10,7 @@
 #include <apr_strings.h>
 #include <apr_thread_mutex.h>
 #include <oidfed_config.h>
+#include <utils.h>
 
 struct in_memory_storage_impl {
     apr_hash_t* hash;
@@ -112,31 +113,38 @@ validate_key_file_perms(apr_pool_t* pool, const char* key_file) {
     struct stat file_stat = {};
     const int res = stat(key_file, &file_stat);
     if (res < 0) {
-        return apr_psprintf(
-            pool,
-            "cannot check key file '%s' permissions: %s", key_file,
-            strerror(errno)
-        );
+        return apr_pstrcat(pool,
+                           "cannot check key file '",
+                           key_file,
+                           "' permissions: ",
+                           strerror(errno), NULL);
     }
 
     const mode_t perms = file_stat.st_mode & 0777;
     if (perms == 0400 || perms == 0600) return NULL;
 
-    return apr_psprintf(
-        pool, "Key file '%s' must have 0400 or 0600 mode: currently has %04o",
-        key_file,
-        perms
-    );
+    char mode_str[32] = {0};
+    memset(mode_str, '0', 4u);
+
+    const size_t mode_str_sz = ui_fmt(NULL, perms, 8);
+    char* mode_out = mode_str + (4u - mode_str_sz);
+    const size_t mode_out_sz = ui_fmt(mode_out, perms, 8);
+
+    return apr_pstrcat(pool,
+                       "Key file '",
+                       key_file,
+                       "' must have 0400 or 0600 mode: currently has ",
+                       mode_out, NULL);
 }
 
 #define SAFE_COPY_CONFIG(parms, name, config_field, value) \
     struct oidfed_config* const cfg = ap_get_module_config(parms->server->module_config, &oidfed); \
     const size_t entity_size = sizeof(cfg->config_field); \
     if (strlcpy(cfg->config_field, value, entity_size) >= entity_size) { \
-        return apr_psprintf(parms->pool, \
-            name ": value too long (max %zu)",\
-            entity_size \
-        ); \
+        char num_buf[sizeof("18446744073709551615")] = {0}; \
+        assert(sizeof(size_t) * CHAR_BIT <= 64); \
+        size_fmt(num_buf, entity_size, 10); \
+        return apr_pstrcat(parms->pool, name, ": value too long (max ", num_buf, ")", NULL);\
     } \
     return NULL;
 
@@ -157,20 +165,11 @@ oidfed_cfg_add_authority_hint(cmd_parms* parms, void* mconfig, const char* w) {
 }
 
 const char*
-oidfed_cfg_set_fed_private_key(cmd_parms* parms, void* cfg, const char* key_file) {
+oidfed_cfg_set_fed_private_key(cmd_parms* parms, void* mconfig, const char* key_file) {
     const char* err = validate_key_file_perms(parms->temp_pool, key_file);
     if (err) return err;
 
-    struct oidfed_config* const config = ap_get_module_config(parms->server->module_config, &oidfed);
-    const size_t sign_fname_size = sizeof(config->federation_signing_key_file);
-    if (strlcpy(config->federation_signing_key_file, key_file, sign_fname_size) >= sign_fname_size) {
-        return apr_psprintf(
-            parms->pool, "OidfedSetOidFederationSigningKey: value too long (max %lu)",
-            (unsigned long) sign_fname_size - 1
-        );
-    }
-
-    return NULL;
+    SAFE_COPY_CONFIG(parms, "OidfedSetOidFederationSigningKey", federation_signing_key_file, key_file);
 }
 
 const char*
@@ -211,6 +210,8 @@ oidfed_cfg_add_trust_anchor(cmd_parms* parms, void* cfg, const char* entity_id) 
 
 const char*
 oidfed_add_op_filter_chain(cmd_parms* parms, void* mconfig, int argc, char* const argv[]) {
+    char num_buf[sizeof("18446744073709551615")] = {0};
+
     if (argc == 0) {
         ap_log_error(
             APLOG_MARK, APLOG_WARNING, 0, parms->server,
@@ -261,10 +262,10 @@ oidfed_add_op_filter_chain(cmd_parms* parms, void* mconfig, int argc, char* cons
     return "unknown filter type: expected 'op', 'explicit', 'auto', 'grants', or 'scopes'";
 
 type_too_long:
-    return apr_psprintf(
-        parms->pool, "OidfedAddOPFilterChain: filter type too long (max %lu)",
-        type_size - 1
-    );
+    assert(sizeof(size_t) * CHAR_BIT <= 64);
+    size_fmt(num_buf, type_size, 10);
+    return apr_pstrcat(parms->pool,
+                       "OidfedAddOPFilterChain: filter type too long (max ", num_buf, ")", NULL);
 }
 
 const char*
@@ -409,17 +410,20 @@ try_load_key_from_file(server_rec* sv,
                        const char* path,
                        const char* key_type,
                        struct oidfed_signer* signer) {
+    char num_buf[sizeof("18446744073709551615")] = {0};
+
     char* chars = NULL;
     size_t chars_sz = 0;
     int errc = slurp_file(sv->process->pool, path, &chars, &chars_sz);
     if (errc != 0) {
         explicit_bzero(chars, chars_sz);
-        return apr_psprintf(
-            sv->process->pool, "Failed to load %s key: error %d: %s",
-            key_type,
-            errc,
-            strerror(errc)
-        );
+
+        si_fmt(num_buf, errc, 10);
+        return apr_pstrcat(sv->process->pool,
+                           "Failed to load ", key_type, " key: "
+                           "error ", num_buf, ": ",
+                           strerror(errc),
+                           NULL);
     }
 
     // Remember to explicitly purge key from memory regardless of success after
@@ -427,11 +431,12 @@ try_load_key_from_file(server_rec* sv,
     *signer = oidfedSignerCreateFromPEM(sv, chars, chars_sz, &errc);
     explicit_bzero(chars, chars_sz);
     if (errc != 0) {
-        return apr_psprintf(
-            sv->process->pool, "Failed to load %s key: error %d: error in go runtime",
-            key_type,
-            errc
-        );
+        si_fmt(num_buf, errc, 10);
+        return apr_pstrcat(sv->process->pool,
+                           "Failed to load ", key_type, " key: "
+                           "error ", num_buf, ": ",
+                           "error in go runtime",
+                           NULL);
     }
     return NULL;
 }
@@ -451,11 +456,9 @@ try_load_signing_algorithm(server_rec* sv,
         sv, alg, &succ
     );
     if (!succ) {
-        return apr_psprintf(
-            sv->process->pool, "Failed to load %s signing key: unknown signature algorithm: %s",
-            alg_type,
-            alg
-        );
+        return apr_pstrcat(sv->process->pool,
+                           "Failed to load ", alg_type, " signing key: "
+                           "unknown signature algorithm: ", alg, NULL);
     }
     return NULL;
 }

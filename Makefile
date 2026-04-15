@@ -9,7 +9,7 @@ builddir     = .
 top_srcdir   = ${apxs_exp_datadir}
 top_builddir = ${apxs_exp_datadir}
 
-SRC = oidfed_wrap_loader.c oidfed_config.c oidfed_req_handler.c
+SRC = oidfed_wrap_loader.c oidfed_config.c oidfed_req_handler.c utils.c
 OBJ = ${SRC:%.c=%.lo}
 SLO = ${SRC:.c=.slo}
 
@@ -23,6 +23,7 @@ mod_oidfed.slo: oidfed_config.h oidfed_req_handler.h oidfed_wrap_loader.h
 oidfed_config.slo: oidfed_config.h
 oidfed_req_handler.slo: oidfed_config.h oidfed_wrap_loader.h oidfed_req_handler.h
 oidfed_wrap_loader.slo: oidfed_config.h oidfed_wrap_loader.h oidfed_wrap_loader.gen.h oidfed_wrap_loader.gen.c
+utils.slo: utils.h
 
 oidfed_wrap_loader.gen.c oidfed_wrap_loader.gen.h: make-loader.pl deps/oidfed_wrap/lib/include/oidfed_wrap_lib.h
 	exec perl make-loader.pl deps/oidfed_wrap/lib/include/oidfed_wrap_lib.h
@@ -38,7 +39,7 @@ install: install-modules-yes
 	echo TODO: oidfed_wrap.so
 
 clean: lib_cleans
-	-exec rm -f *.o mod_oidfed.lo mod_oidfed.slo mod_oidfed.la
+	-exec rm -f *.o ${OBJ} ${SLO} mod_oidfed.slo mod_oidfed.la
 
 test: reload
 	lynx -mime_header http://localhost/oidfed

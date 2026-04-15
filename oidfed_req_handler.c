@@ -20,6 +20,8 @@
 
 #include <util_script.h>
 
+#include "utils.h"
+
 static char*
 construct_auth_url(request_rec* r, const struct oidfed_config* config,
                    struct oidfed_openid_provider_metadata op_metadata,
@@ -55,32 +57,25 @@ construct_auth_url(request_rec* r, const struct oidfed_config* config,
     oidfMapSetString(r, request_values, "aud", issuer);
     oidfMapSetString(r, request_values, "redirect_uri", req_redir);
     oidfMapSetString(r, request_values, "response_type", "code");
-    oidfMapSetString(r, request_values, "scope", "openid");
-
-    char state_bits[17]; {
+    oidfMapSetString(r, request_values, "scope", "openid"); {
+        char state_bits[16]; // NON C STRING
         // XXX - unsafe random
-        char nonce[17];
         static const char charset[] = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
         for (int i = 0; i < 16; i++) {
             state_bits[i] = charset[rand() % (sizeof(charset) - 1)];
-            nonce[i] = charset[rand() % (sizeof(charset) - 1)];
         }
-        state_bits[16] = '\0';
-        nonce[16] = '\0';
 
+        const char* referer = apr_table_get(r->headers_in, "Referer");
+        ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "------- yEEEEE: %s ----------------", referer);
+
+        apr_pstrcat(r->pool,
+                    encode_netstringc(r->pool, referer),
+                    encode_netstringc(r->pool, op_id),
+                    encode_netstring(r->pool, state_bits, 16),
+                    NULL);
         char* state = apr_pstrcat(r->pool, op_id, ":", state_bits, NULL);
         oidfMapSetString(r, request_values, "state", state);
     }
-
-    struct oidfed_session* temp_session = apr_pcalloc(r->server->process->pool, sizeof(struct oidfed_session));
-    temp_session->sid = apr_pstrdup(r->server->process->pool, state_bits);
-    temp_session->op_id = apr_pstrdup(r->server->process->pool, op_id);
-    temp_session->expiry = apr_time_now() + apr_time_from_sec(300);
-
-    rt->session_storage.set(&rt->session_storage, temp_session);
-
-    ap_cookie_write(r, OIDFED_SESSION_COOKIE, temp_session->sid, NULL, apr_time_from_sec(300), r->headers_out,
-                    r->err_headers_out, NULL);
 
     int errc = 0;
     struct oidfed_signed_bytes signed_request = oidfedRequestProducerProduceObject(
@@ -96,14 +91,13 @@ construct_auth_url(request_rec* r, const struct oidfed_config* config,
     size_t jwt_sz = 0;
     char* jwt = oidfedSignedBytesGetData(r, signed_request, &jwt_sz);
 
-    char* final_url = apr_psprintf(r->pool, "%s%cclient_id=%s&request=%s&response_type=%s&redirect_uri=%s&scope=%s",
-                                   auth_endpoint,
-                                   strchr(auth_endpoint, '?') ? '&' : '?',
-                                   /*client_id=*/ apr_pescape_urlencoded(r->pool, config->entity_id),
-                                   /*request=*/ jwt,
-                                   /*response_type=*/ "code",
-                                   /*redirect_uri=*/ apr_pescape_urlencoded(r->pool, req_redir),
-                                   /*scope=*/ "openid");
+    char* final_url = apr_pstrcat(r->pool, auth_endpoint, strchr(auth_endpoint, '?') ? "&" : "?",
+                                  "client_id=", apr_pescape_urlencoded(r->pool, config->entity_id),
+                                  "&request=", jwt,
+                                  "&response_type=code",
+                                  "&redirect_uri=", apr_pescape_urlencoded(r->pool, req_redir),
+                                  "&scope=openid",
+                                  NULL);
 
     ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "Constructed Auth URL: %s", final_url);
 
@@ -126,6 +120,73 @@ static int
 req_redirect_handler(const struct oidfed_config* config, request_rec* r);
 
 int
+handle_open_id_authentication(request_rec* r, const struct oidfed_config* config) {
+    apr_table_t* args = NULL;
+    ap_args_to_table(r, &args);
+    if (!args) return req_login_ui_handler(config, r);
+
+    const char* op_id = apr_table_get(args, "iss");
+    if (!op_id) return req_login_ui_handler(config, r);
+
+    ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "Initiating login for OP: %s", op_id);
+    const struct oidfed_worker_runtime* rt = config->worker_cfg.runtime;
+    struct oidfed_trust_resolver resolver = oidfedTrustResolverCreate(
+        r, (char*)op_id, rt->trust_anchors, rt->trust_anchors_sz);
+    struct oidfed_trust_chains chains = oidfedTrustResolverResolveToValidChains(r, resolver);
+
+    if (oidfedTrustChainsCount(r, chains) <= 0) {
+        ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "No valid trust chains found for OP: %s", op_id);
+        goto cleanup_resolver;
+    }
+
+    struct oidfed_trust_chain chain = oidfedTrustChainsGet(r, chains, 0);
+    int errc = 0;
+    struct oidfed_metadata metadata = oidfedTrustChainGetMetadata(r, chain, &errc);
+
+    if (errc != 0) {
+        ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r,
+                      "Failed to get metadata from trust chain for OP: %s, error: %d", op_id, errc);
+        goto cleanup_chain;
+    }
+
+    struct oidfed_openid_provider_metadata op_metadata = oidfedMetadataGetOPMetadata(r, metadata);
+    if (op_metadata.impl == 0) {
+        ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "Failed to get OP metadata for OP: %s", op_id);
+        goto cleanup_metadata;
+    }
+
+    char* auth_url = construct_auth_url(r, config, op_metadata, op_id);
+    if (!auth_url) {
+        ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "Failed to construct auth URL for OP: %s", op_id);
+        goto cleanup_op_metadata;
+    }
+
+    ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "Redirecting to OP auth URL: %s", auth_url);
+
+    apr_table_set(r->headers_out, "Location", auth_url);
+
+    oidfedOpenIDProviderMetadataDestroy(r, &op_metadata);
+    oidfedMetadataDestroy(r, &metadata);
+    oidfedTrustChainDestroy(r, &chain);
+    oidfedTrustChainsDestroy(r, &chains);
+    oidfedTrustResolverDestroy(r, &resolver);
+
+    return HTTP_MOVED_TEMPORARILY;
+
+cleanup_op_metadata:
+    oidfedOpenIDProviderMetadataDestroy(r, &op_metadata);
+cleanup_metadata:
+    oidfedMetadataDestroy(r, &metadata);
+cleanup_chain:
+    oidfedTrustChainDestroy(r, &chain);
+cleanup_resolver:
+    oidfedTrustChainsDestroy(r, &chains);
+    oidfedTrustResolverDestroy(r, &resolver);
+
+    return HTTP_INTERNAL_SERVER_ERROR;
+}
+
+int
 oidfed_req_handler(request_rec* r) {
     if (strcmp(r->handler, "oidfed") != CMP_EQ) return DECLINED;
     if (!r->uri) return DECLINED;
@@ -135,82 +196,12 @@ oidfed_req_handler(request_rec* r) {
 
     assert(config->worker_cfg.runtime->owner_pid == getpid() && "mismatched owner pid");
 
-    if (strcmp(r->uri, OIDFED_WELL_KNOWN_PATH) == CMP_EQ) {
-        return req_well_known_handler(config, r);
-    }
-
+    if (strcmp(r->uri, OIDFED_WELL_KNOWN_PATH) == CMP_EQ) return req_well_known_handler(config, r);
+    if (strcmp(r->uri, config->login_url) == CMP_EQ) return handle_open_id_authentication(r, config);
     for (size_t i = 0; i < config->metadata.rp_redirect_uris_sz; i++) {
         if (strcmp(r->uri, config->metadata.rp_redirect_uris[i]) == CMP_EQ) {
             return req_redirect_handler(config, r);
         }
-    }
-
-    if (strcmp(r->uri, config->login_url) == CMP_EQ) {
-        const char* op_id = NULL;
-        apr_table_t* args = NULL;
-        ap_args_to_table(r, &args);
-        if (args) {
-            op_id = apr_table_get(args, "op");
-        }
-
-        if (op_id) {
-            ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "Initiating login for OP: %s", op_id);
-            const struct oidfed_worker_runtime* rt = config->worker_cfg.runtime;
-            struct oidfed_trust_resolver resolver = oidfedTrustResolverCreate(
-                r, (char*)op_id, rt->trust_anchors, rt->trust_anchors_sz);
-            struct oidfed_trust_chains chains = oidfedTrustResolverResolveToValidChains(r, resolver);
-
-            if (oidfedTrustChainsCount(r, chains) <= 0) {
-                ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "No valid trust chains found for OP: %s", op_id);
-                goto cleanup_resolver;
-            }
-
-            struct oidfed_trust_chain chain = oidfedTrustChainsGet(r, chains, 0);
-            int errc = 0;
-            struct oidfed_metadata metadata = oidfedTrustChainGetMetadata(r, chain, &errc);
-
-            if (errc != 0) {
-                ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r,
-                              "Failed to get metadata from trust chain for OP: %s, error: %d", op_id, errc);
-                goto cleanup_chain;
-            }
-
-            struct oidfed_openid_provider_metadata op_metadata = oidfedMetadataGetOPMetadata(r, metadata);
-            if (op_metadata.impl == 0) {
-                ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "Failed to get OP metadata for OP: %s", op_id);
-                goto cleanup_metadata;
-            }
-
-            char* auth_url = construct_auth_url(r, config, op_metadata, op_id);
-            if (!auth_url) {
-                ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "Failed to construct auth URL for OP: %s", op_id);
-                goto cleanup_op_metadata;
-            }
-
-            ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "Redirecting to OP auth URL: %s", auth_url);
-
-            apr_table_set(r->headers_out, "Location", auth_url);
-
-            oidfedOpenIDProviderMetadataDestroy(r, &op_metadata);
-            oidfedMetadataDestroy(r, &metadata);
-            oidfedTrustChainDestroy(r, &chain);
-            oidfedTrustChainsDestroy(r, &chains);
-            oidfedTrustResolverDestroy(r, &resolver);
-
-            return HTTP_MOVED_TEMPORARILY;
-
-        cleanup_op_metadata:
-            oidfedOpenIDProviderMetadataDestroy(r, &op_metadata);
-        cleanup_metadata:
-            oidfedMetadataDestroy(r, &metadata);
-        cleanup_chain:
-            oidfedTrustChainDestroy(r, &chain);
-        cleanup_resolver:
-            oidfedTrustChainsDestroy(r, &chains);
-            oidfedTrustResolverDestroy(r, &resolver);
-        }
-
-        return req_login_ui_handler(config, r);
     }
 
     return HTTP_NOT_FOUND;
@@ -238,6 +229,8 @@ req_login_ui_handler(const struct oidfed_config* config, request_rec* r) {
     apr_hash_t* rendered_ops = apr_hash_make(r->pool);
     apr_array_header_t* ops_list = apr_array_make(r->pool, 10, sizeof(struct op_info));
 
+    const char* referer = apr_table_get(r->headers_in, "Referer");
+    ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "------- ui: %s ----------------", referer);
     ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "Collecting OPs from %lu trust anchors",
                   rt->trust_anchors_sz);
 
@@ -284,34 +277,32 @@ req_login_ui_handler(const struct oidfed_config* config, request_rec* r) {
     qsort(ops_list->elts, ops_list->nelts, ops_list->elt_size, compare_ops);
 
     ap_set_content_type(r, "text/html");
-    ap_rprintf(r, "<html>"
-               "<head>"
-               "<title>%s</title>"
-               "<link rel=\"stylesheet\" type=\"text/css\" href=\"%s\">"
-               "</head>"
-               "<body>"
-               "<h1 class=\"op-listing-header\">Available OPs:</h1>"
-               "<ul class=\"op-listing\">",
-               "Apache OpenID Federation",
-               "oidfed.css");
+    ap_rputs("<html>"
+             "<head>"
+             "<title>Apache OpenId Federatoin</title>"
+             "<link rel=\"stylesheet\" type=\"text/css\" href=\"oidfed.css\">"
+             "</head>"
+             "<body>"
+             "<h1 class=\"op-listing-header\">Available OPs:</h1>"
+             "<ul class=\"op-listing\">", r);
 
     for (int i = 0; i < ops_list->nelts; i++) {
-        struct op_info* info = &APR_ARRAY_IDX(ops_list, i, struct op_info);
-        if (info->display_name) {
-            ap_rprintf(r, "<li class=\"op-elem\" style=\"--op-index: %d\"><a href=\"%s?op=%s\">%s</a></li>",
-                       i,
-                       config->login_url,
-                       info->entity_id,
-                       info->display_name
-            );
-        }
-        else {
-            ap_rprintf(r, "<li class=\"op-elem\" style=\"--op-index: %d\"><a href=\"%s?op=%s\">%s</a></li>",
-                       i,
-                       config->login_url,
-                       info->entity_id,
-                       info->entity_id);
-        }
+        char i_str[sizeof("18446744073709551615")] = {0};
+        assert(sizeof(int) * CHAR_BIT <= 64); // error on massive int sizes
+
+        const struct op_info* const info = &APR_ARRAY_IDX(ops_list, i, struct op_info);
+        const size_t i_str_sz = si_fmt(i_str, i, 10);
+        i_str[i_str_sz] = '\0';
+
+        ap_rputs("<li class=\"op-elem\" style=\"--op-index: ", r);
+        ap_rputs(i_str, r);
+        ap_rputs("\"><a href=\"", r);
+        ap_rputs(config->login_url, r);
+        ap_rputs("?iss=", r);
+        ap_rputs(info->entity_id, r);
+        ap_rputs("\">", r);
+        ap_rputs(info->display_name ? info->display_name : info->entity_id, r);
+        ap_rputs("</a></li>", r);
     }
 
     ap_rputs("</ul></body></html>", r);
@@ -484,8 +475,7 @@ req_redirect_handler(const struct oidfed_config* config, request_rec* r) {
     oidfedTrustResolverDestroy(r, &resolver);
 
     ap_set_content_type(r, "text/html");
-    ap_rprintf(
-        r, "<html><body><h1>Authentication Successful</h1><p>Received tokens and verified with OP.</p></body></html>");
+    ap_rputs("<html><body><h1>Authentication Successful</h1><p>Received tokens and verified with OP.</p></body></html>", r);
 
     return OK;
 

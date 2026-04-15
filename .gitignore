@@ -5,3 +5,4 @@
 *.so
 .libs/
 config.mk
+_Deparsed_XSubs.pm
