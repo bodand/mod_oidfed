@@ -418,6 +418,9 @@ req_redirect_handler(const struct oidfed_config* config, request_rec* r) {
     char* op_id = decode_netstring_inplace(next_value, &next_value);
     char* state_bits = decode_netstring_inplace(next_value, &next_value);
 
+    ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "OIDC redirect: return_to=%s, op_id=%s, state_bits=%s",
+        return_to, op_id, state_bits);
+
     if (!sid_from_cookie || strcmp(sid_from_cookie, state_bits) != 0) {
         ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "OIDC redirect: state/session mismatch (expected %s, got %s)",
                       state_bits, sid_from_cookie ? sid_from_cookie : "null");
