@@ -32,20 +32,9 @@ generate_oidc_request_state(request_rec* r,
                             const char* op_id,
                             const char* return_to,
                             const struct oidfed_map request_values) {
-    static const char charset[] = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-
-    unsigned char raw_state[16];
-    apr_generate_random_bytes(raw_state, 16);
-
-    char state_bits[16];
-    for (int i = 0; i < 16; i++) {
-        state_bits[i] = charset[raw_state[i] % (sizeof(charset) - 1)];
-    }
-
     char* state = apr_pstrcat(r->pool,
                               encode_netstringc(r->pool, return_to),
                               encode_netstringc(r->pool, op_id),
-                              encode_netstring(r->pool, state_bits, 16),
                               NULL);
     oidfMapSetString(r, request_values, "state", state);
 }
@@ -295,7 +284,7 @@ req_login_ui_handler(const struct oidfed_config* config, request_rec* r) {
     apr_hash_t* rendered_ops = apr_hash_make(r->pool);
     apr_array_header_t* ops_list = apr_array_make(r->pool, 10, sizeof(struct op_info));
 
-    apr_table_t *args = NULL;
+    apr_table_t* args = NULL;
     ap_args_to_table(r, &args);
 
     const char* return_to = NULL;
@@ -407,38 +396,19 @@ req_redirect_handler(const struct oidfed_config* config, request_rec* r) {
     }
 
     ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "OIDC redirect received code and state: state=%s", state);
-
     const struct oidfed_worker_runtime* rt = config->worker_cfg.runtime;
+
     const char* sid_from_cookie = NULL;
     ap_cookie_read(r, OIDFED_SESSION_COOKIE, &sid_from_cookie, 0);
+    if (sid_from_cookie) rt->session_storage.remove(&rt->session_storage, sid_from_cookie);
 
     // Retrieve OP identifier from state.
     char* next_value = NULL;
     char* return_to = decode_netstring_inplace(state, &next_value);
-    ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "OIDC redirect: return_to=%s, next_value=%s", return_to, next_value);
     char* op_id = decode_netstring_inplace(next_value + 1, &next_value);
-    ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "OIDC redirect: op_id=%s, next_value=%s", op_id, next_value);
-    char* state_bits = decode_netstring_inplace(next_value + 1, &next_value);
-    ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "OIDC redirect: state-bits=%s, next_value=%s", state_bits, next_value);
 
-    ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "OIDC redirect: return_to=%s, op_id=%s, state_bits=%s",
-        return_to, op_id, state_bits);
-
-    if (!sid_from_cookie || strcmp(sid_from_cookie, state_bits) != 0) {
-        ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "OIDC redirect: state/session mismatch (expected %s, got %s)",
-                      state_bits, sid_from_cookie ? sid_from_cookie : "null");
-        return HTTP_FORBIDDEN;
-    }
-
-    struct oidfed_session* temp_session = rt->session_storage.get(&rt->session_storage, sid_from_cookie);
-    if (temp_session) {
-        rt->session_storage.remove(&rt->session_storage, sid_from_cookie);
-    }
-
-    if (!temp_session || temp_session->expiry < apr_time_now() || strcmp(temp_session->op_id, op_id) != 0) {
-        ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "OIDC redirect: Invalid or expired temporary session");
-        return HTTP_FORBIDDEN;
-    }
+    ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "OIDC redirect: return_to=%s, op_id=%s",
+                  return_to, op_id);
 
     ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "OIDC redirect identified and verified OP: %s", op_id);
     struct oidfed_trust_resolver resolver = oidfedTrustResolverCreate(r, (char*)op_id, rt->trust_anchors,
@@ -478,28 +448,25 @@ req_redirect_handler(const struct oidfed_config* config, request_rec* r) {
 
     char* token_response = oidfedRequestProducerExchangeCode(r, producer, token_endpoint, (char*)code,
                                                              (char*)redirect_uri, &errc);
-
     if (errc != 0) {
         ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "OIDC redirect: Token exchange failed for OP: %s", op_id);
-        free(token_endpoint);
-        goto cleanup_op_metadata;
+        goto cleanup_token;
     }
 
     ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "OIDC redirect: Successfully retrieved tokens: %s", token_response);
 
     static const char charset[] = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-    char sid_bits[17];
-    for (int i = 0; i < 16; i++) {
-        sid_bits[i] = charset[rand() % (sizeof(charset) - 1)];
-    }
-    sid_bits[16] = '\0';
-    char* sid = apr_pstrdup(r->server->process->pool, (char*) sid_bits);
+
+    char sid_bits[17] = {0};
+    apr_generate_random_bytes((unsigned char*) sid_bits, sizeof(sid_bits) - 1);
+    for (int i = 0; i < sizeof(sid_bits) - 1; i++) sid_bits[i] = charset[sid_bits[i] % (sizeof(charset) - 1)];
+    char* sid = apr_pstrdup(r->server->process->pool, sid_bits);
 
     struct oidfed_session* session = apr_pcalloc(r->server->process->pool, sizeof(struct oidfed_session));
     session->sid = sid;
     session->op_id = apr_pstrdup(r->server->process->pool, op_id);
     session->token_response = apr_pstrdup(r->server->process->pool, token_response);
-    session->expiry = apr_time_now() + apr_time_from_sec(3600); // 1 hour session for now
+    session->expiry = apr_time_now() + apr_time_from_sec(3600);
 
     rt->session_storage.set(&rt->session_storage, session);
 
@@ -520,6 +487,9 @@ req_redirect_handler(const struct oidfed_config* config, request_rec* r) {
 
     return HTTP_MOVED_TEMPORARILY;
 
+cleanup_token:
+    free(token_response);
+    free(token_endpoint);
 cleanup_op_metadata:
     oidfedOpenIDProviderMetadataDestroy(r, &op_metadata);
 cleanup_metadata:
