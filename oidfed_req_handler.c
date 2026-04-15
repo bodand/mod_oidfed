@@ -415,8 +415,11 @@ req_redirect_handler(const struct oidfed_config* config, request_rec* r) {
     // Retrieve OP identifier from state.
     char* next_value = NULL;
     char* return_to = decode_netstring_inplace(state, &next_value);
+    ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "OIDC redirect: return_to=%s, next_value=%s", return_to, next_value);
     char* op_id = decode_netstring_inplace(next_value, &next_value);
+    ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "OIDC redirect: op_id=%s, next_value=%s", op_id, next_value);
     char* state_bits = decode_netstring_inplace(next_value, &next_value);
+    ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "OIDC redirect: state-bits=%s, next_value=%s", state_bits, next_value);
 
     ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "OIDC redirect: return_to=%s, op_id=%s, state_bits=%s",
         return_to, op_id, state_bits);
