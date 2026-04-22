@@ -5,6 +5,8 @@ ifeq ($(CHECK_CONFIG),error)
 endif
 include config.mk
 
+SITE ?= /var/www/html
+
 builddir     = .
 top_srcdir   = ${apxs_exp_datadir}
 top_builddir = ${apxs_exp_datadir}
@@ -34,9 +36,24 @@ all: lib_builds local-shared-build
 
 local-shared-build: lib_builds
 
-install: install-modules-yes
-	echo TODO: oidfed.css
-	echo TODO: oidfed_wrap.so
+install: install-modules-yes ${apxs_exp_libdir}/oidfed_wrap.so
+	@exec echo "===================== CSS installation ========================"
+	@exec echo "You need to ensure you copy oidfed.css to your site's root, or"
+	@exec echo "provide your own version for styling."
+	@exec echo "To install the built-in version automatically, run: "
+	@exec echo ""
+	@exec echo "  make css SITE=<your site's root dir>"
+	@exec echo ""
+	@exec echo "If SITE is not set, it defaults to /var/www/html"
+	@exec echo "==============================================================="
+
+${apxs_exp_libdir}/oidfed_wrap.so: deps/oidfed_wrap/lib/lib/liboidfed_wrap.soó
+	exec install -m644 deps/oidfed_wrap/lib/lib/liboidfed_wrap.so $@
+
+css: ${SITE}/oidfed.css
+
+${SITE}/oidfed.css: oidfed.css
+	@exec install -m644 oidfed.css $@
 
 clean: lib_cleans
 	-exec rm -f *.o ${OBJ} ${SLO} mod_oidfed.slo mod_oidfed.la
