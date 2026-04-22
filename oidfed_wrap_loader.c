@@ -41,9 +41,8 @@
         void* sym = dlsym(dynlib, APR_STRINGIFY(fn)); \
         if (UNLIKELY(!sym)) { \
             logger(APLOG_MARK, APLOG_EMERG, __VA_ARGS__, \
-                "oidfedWrap: symbol '%s' is not found in wrap library. " \
-                "This is likely a result of a currepted or drifted installation.", \
-                APR_STRINGIFY(fn)); \
+                "oidfedWrap: symbol '" APR_STRINGIFY(fn) "' is not found in wrap library. " \
+                "This is likely a result of a corrupted or drifted installation."); \
             assert(false && "module invariant broken: incompatible wrap library found"); \
         } \
         OIDFED_CAT(OIDFED_FN_HOLDER_PREFIX, fn) = sym;\
@@ -70,14 +69,14 @@ oidfed_worker_deinit_dynlib(void* data) {
 
 apr_status_t
 oidfed_worker_init(const struct oidfed_worker_config* cfg, apr_pool_t* p) {
-    ap_log_perror(APLOG_MARK, APLOG_DEBUG, 0, p, "oidfedWrap: loading wrap library: %s",
+    ap_log_perror(APLOG_MARK, APLOG_DEBUG, 0, p, "oidfedWrap: loading wrap library: "
                   OIDFED_WORKER_DYNLIB_PATH);
     const void* dl = dlopen(OIDFED_WORKER_DYNLIB_PATH,
                             (cfg->lazy_load_symbols ? RTLD_LAZY : RTLD_NOW)
                             | RTLD_LOCAL);
     if (!dl) {
-        ap_log_perror(APLOG_MARK, APLOG_EMERG, 0, p, "oidfedWrap: failed to load wrap library: %s: %s",
-                      OIDFED_WORKER_DYNLIB_PATH,
+        ap_log_perror(APLOG_MARK, APLOG_EMERG, 0, p,
+                      "oidfedWrap: failed to load wrap library: " OIDFED_WORKER_DYNLIB_PATH": %s",
                       dlerror());
         return APR_ENOENT;
     }
@@ -87,4 +86,3 @@ oidfed_worker_init(const struct oidfed_worker_config* cfg, apr_pool_t* p) {
 #endif
 
 #include "oidfed_wrap_loader.gen.c"
-
