@@ -292,6 +292,17 @@ req_login_ui_handler(const struct oidfed_config* config, request_rec* r) {
         return_to = apr_table_get(args, "target_link_uri");
     }
 
+    const char* op_hint = apr_table_get(args, "hint");
+    if (op_hint) {
+        ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "OP hint: %s", op_hint);
+    }
+
+    const char* rp_id = apr_table_get(args, "entity_id");
+    if (!rp_id) {
+        ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "Home discovery: No entity_id received from RP");
+        return HTTP_BAD_REQUEST;
+    }
+
     ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "Collecting OPs from %lu trust anchors",
                   rt->trust_anchors_sz);
 
@@ -552,8 +563,16 @@ check_login_url:
         return DECLINED;
     }
 
+    struct oidfed_config* const cfg = ap_get_module_config(r->server->module_config, &oidfed);
+    if (!cfg) {
+        ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "OIDC auth: module configuration vanished from httpd");
+        return HTTP_INTERNAL_SERVER_ERROR;
+    }
+    const char* entity_id = cfg->entity_id;
+
     const char* final_url = apr_pstrcat(r->pool, login_url, strchr(login_url, '?') ? "&" : "?",
-                                        "target_link_uri=", apr_pescape_urlencoded(r->pool, r->unparsed_uri),
+                                        "entity_id=", apr_pescape_urlencoded(r->pool, entity_id),
+                                        "&target_link_uri=", apr_pescape_urlencoded(r->pool, r->unparsed_uri),
                                         NULL);
     apr_table_set(r->headers_out, "Location", final_url);
     return HTTP_MOVED_TEMPORARILY;
