@@ -47,7 +47,7 @@ install: install-modules-yes ${apxs_exp_libdir}/oidfed_wrap.so
 	@exec echo "If SITE is not set, it defaults to /var/www/html"
 	@exec echo "==============================================================="
 
-${apxs_exp_libdir}/oidfed_wrap.so: deps/oidfed_wrap/lib/lib/liboidfed_wrap.soó
+${apxs_exp_libdir}/oidfed_wrap.so: deps/oidfed_wrap/lib/lib/liboidfed_wrap.so
 	exec install -m644 deps/oidfed_wrap/lib/lib/liboidfed_wrap.so $@
 
 css: ${SITE}/oidfed.css
