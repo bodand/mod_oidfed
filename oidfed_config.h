@@ -169,6 +169,9 @@ struct oidfed_config {
     /// Signature algorithm to use for replying-party metadata signing
     char oidc_signing_alg[CONFIG_SIGNALG_MAX];
 
+    /// OP hint to pass to the home discovery endpoint
+    char home_discovery_op_hint[CONFIG_ENTITY_ID_MAX];
+
     /// Nested metadata configuration
     struct oidfed_metadata_config metadata;
 };
@@ -230,6 +233,9 @@ oidfed_cfg_add_client_reg_type(cmd_parms* parms, void* mconfig, const char* w);
 const char*
 oidfed_cfg_add_grant_type(cmd_parms* parms, void* mconfig, const char* w);
 
+const char*
+oidfed_cfg_add_home_discovery_op_hint(cmd_parms* parms, void* mconfig, const char* w);
+
 // APACHE //
 
 extern module AP_MODULE_DECLARE_DATA oidfed;
@@ -267,6 +273,8 @@ static const command_rec oidfed_cmds[] = {
                   "Add a Client Registration Type to metadata"),
     AP_INIT_TAKE1("OidfedAddGrantType", oidfed_cfg_add_grant_type, NULL, RSRC_CONF,
                   "Add a Grant Type to metadata"),
+    AP_INIT_TAKE1("OidfedHomeDiscoveryAddOpHint", oidfed_cfg_add_home_discovery_op_hint, NULL, RSRC_CONF,
+                  "When redirecting the user to the home discovery endpoint, pass this OP hint"),
     {NULL}
 };
 

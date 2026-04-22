@@ -313,6 +313,11 @@ oidfed_cfg_add_grant_type(cmd_parms* parms, void* mconfig, const char* w) {
     return NULL;
 }
 
+const char*
+oidfed_cfg_add_home_discovery_op_hint(cmd_parms* parms, void* mconfig, const char* w) {
+    SAFE_COPY_CONFIG(parms, "OidfedAddHomeDiscoveryOPHint", home_discovery_op_hint, w);
+}
+
 static apr_status_t
 oidfed_worker_runtime_uninit(void* raw) {
     struct oidfed_worker_runtime* rt = raw;

@@ -311,6 +311,26 @@ req_login_ui_handler(const struct oidfed_config* config, request_rec* r) {
 
     qsort(ops_list->elts, ops_list->nelts, ops_list->elt_size, compare_ops);
 
+    for (int i = 0; i < ops_list->nelts; i++) {
+        const struct op_info* const info = &APR_ARRAY_IDX(ops_list, i, struct op_info);
+        if (strcmp(info->entity_id, op_hint) != CMP_EQ) continue;
+
+        ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "Resolved OP was hinted: %s",
+                      op_hint);
+
+        const char* const url = apr_pstrcat(
+            r->pool,
+            config->login_url,
+            "?iss=",
+            ap_escape_urlencoded(r->pool, info->entity_id),
+            return_to ? "&target_link_uri=" : NULL,
+            return_to ? ap_escape_urlencoded(r->pool, return_to) : NULL,
+            NULL);
+
+        apr_table_set(r->headers_out, "Location", url);
+        return HTTP_TEMPORARY_REDIRECT;
+    }
+
     ap_set_content_type(r, "text/html");
     ap_rputs("<html>"
              "<head>"
