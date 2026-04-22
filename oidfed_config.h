@@ -273,7 +273,7 @@ static const command_rec oidfed_cmds[] = {
                   "Add a Client Registration Type to metadata"),
     AP_INIT_TAKE1("OidfedAddGrantType", oidfed_cfg_add_grant_type, NULL, RSRC_CONF,
                   "Add a Grant Type to metadata"),
-    AP_INIT_TAKE1("OidfedHomeDiscoveryAddOpHint", oidfed_cfg_add_home_discovery_op_hint, NULL, RSRC_CONF,
+    AP_INIT_TAKE1("OidfedHomeDiscoveryAddOPHint", oidfed_cfg_add_home_discovery_op_hint, NULL, RSRC_CONF,
                   "When redirecting the user to the home discovery endpoint, pass this OP hint"),
     {NULL}
 };

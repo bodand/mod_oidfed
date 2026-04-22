@@ -22,6 +22,14 @@
 
 #include "utils.h"
 
+#ifdef __GNUC__
+#define UNLIKELY(x) __builtin_expect(!!(x), 0)
+#define LIKELY(x) __builtin_expect(!!(x), 1)
+#else
+#define UNLIKELY(x) x
+#define LIKELY(x) x
+#endif
+
 static bool
 str_empty(const char* str) {
     return str[0] == '\0';
@@ -599,15 +607,20 @@ check_login_url:
     }
 
     struct oidfed_config* const cfg = ap_get_module_config(r->server->module_config, &oidfed);
-    if (!cfg) {
+    if (UNLIKELY(!cfg)) {
         ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, "OIDC auth: module configuration vanished from httpd");
         return HTTP_INTERNAL_SERVER_ERROR;
     }
     const char* entity_id = cfg->entity_id;
 
+    const char* home_hint = cfg->home_discovery_op_hint;
+    if (str_empty(home_hint)) home_hint = 0;
+
     const char* final_url = apr_pstrcat(r->pool, login_url, strchr(login_url, '?') ? "&" : "?",
                                         "entity_id=", apr_pescape_urlencoded(r->pool, entity_id),
                                         "&target_link_uri=", apr_pescape_urlencoded(r->pool, r->unparsed_uri),
+                                        home_hint ? "&hint=" : NULL,
+                                        home_hint ? apr_pescape_urlencoded(r->pool, home_hint) : NULL,
                                         NULL);
     apr_table_set(r->headers_out, "Location", final_url);
     return HTTP_MOVED_TEMPORARILY;

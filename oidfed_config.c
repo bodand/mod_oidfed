@@ -610,6 +610,8 @@ oidfed_config_init(struct oidfed_config* cfg) {
     cfg->metadata.grant_types_sz = 1;
     cfg->metadata.grant_types[0] = CONFIG_DEFAULT_GRANT_TYPE;
 
+    memset(cfg->home_discovery_op_hint, 0, sizeof(cfg->home_discovery_op_hint));
+
     cfg->trust_anchors_sz = 0;
     cfg->authority_hints_sz = 0;
     cfg->filters = NULL;
