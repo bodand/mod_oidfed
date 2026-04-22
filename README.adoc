@@ -19,11 +19,175 @@ If prerequisites are met, the following common incantations should install _mod_
 
 [source, shell]
 -----
+$ ./configure <1>
 $ make
-$ make install <1>
+$ make install <2>
 -----
-<1> This may need elevated privileges.
+<1> This is not a standard configure script, expect no output in case of success.
+<2> This may need elevated privileges.
 
 == Configuration
 
-WIP
+The following configuration directives are available for _mod_oidfed_.
+
+=== General configuration
+
+==== `OidfedSetEntityId`
+[horizontal]
+*Syntax*:: `OidfedSetEntityId <entity-id>`
+*Context*:: server config
+
+Sets the unique identifier for this Federation Entity.
+Default value is `badly-configured-entity`.
+
+==== `OidfedSetLoginPath`
+[horizontal]
+*Syntax*:: `OidfedSetLoginPath <path>`
+*Context*:: server config
+
+Sets the URL path where the user should be redirected to initiate the login process.
+Default value is `/login`.
+
+=== Federation configuration
+
+==== `OidfedAddTrustAnchor`
+[horizontal]
+*Syntax*:: `OidfedAddTrustAnchor <entity-id>`
+*Context*:: server config
+
+Adds a Trust Anchor's entity ID to the list of trusted anchors for federation.
+A trust anchor must be specified to work properly.
+
+==== `OidfedAddAuthorityHint`
+[horizontal]
+*Syntax*:: `OidfedAddAuthorityHint <entity-id>`
+*Context*:: server config
+
+Adds an authority hint to the Federation Entity metadata, pointing to a superior entity in the federation.
+
+==== `OidfedSetOidFederationSigningKey`
+[horizontal]
+*Syntax*:: `OidfedSetOidFederationSigningKey <file-path>`
+*Context*:: server config
+
+Sets the path to the private key file used for signing Federation Entity metadata.
+Default value is `./federation.key`.
+
+==== `OidfedSetOidFederationSignatureAlgorithm`
+[horizontal]
+*Syntax*:: `OidfedSetOidFederationSignatureAlgorithm <algorithm>`
+*Context*:: server config
+
+Sets the signature algorithm used for Federation Entity metadata (e.g., `RS256`, `ES256`).
+Default value is `ES512`.
+
+=== Relying Party (RP) configuration
+
+==== `OidfedSetOidConnectSigningKey`
+[horizontal]
+*Syntax*:: `OidfedSetOidConnectSigningKey <file-path>`
+*Context*:: server config
+
+Sets the path to the private key file used for signing OpenID Connect (Relying Party) metadata.
+Default value is `./oidc.key`.
+
+==== `OidfedSetOidConnectSignatureAlgorithm`
+[horizontal]
+*Syntax*:: `OidfedSetOidConnectSignatureAlgorithm <algorithm>`
+*Context*:: server config
+
+Sets the signature algorithm used for OpenID Connect metadata.
+Default value is `ES512`.
+
+==== `OidfedAddRPRedirectURI`
+[horizontal]
+*Syntax*:: `OidfedAddRPRedirectURI <path>`
+*Context*:: server config
+
+Adds a redirect URI to the Relying Party metadata.
+The path should be relative to the `OidfedSetEntityId`.
+
+==== `OidfedSetClientName`
+[horizontal]
+*Syntax*:: `OidfedSetClientName <name>`
+*Context*:: server config
+
+Sets the human-readable name of the client in the metadata.
+Default value is `apache-client`.
+
+==== `OidfedSetOrganizationName`
+[horizontal]
+*Syntax*:: `OidfedSetOrganizationName <name>`
+*Context*:: server config
+
+Sets the organization name in the metadata.
+Default value is `demo ltd.`.
+
+==== `OidfedSetLogoURI`
+[horizontal]
+*Syntax*:: `OidfedSetLogoURI <url>`
+*Context*:: server config
+
+Sets the logo URI in the metadata.
+Default value is `https://placehold.co/300x200`.
+
+==== `OidfedAddClientRegistrationType`
+[horizontal]
+*Syntax*:: `OidfedAddClientRegistrationType <type>`
+*Context*:: server config
+
+Adds a supported client registration type to the metadata (e.g., `automatic`, `explicit`).
+Default registration type is `automatic`.
+
+==== `OidfedAddGrantType`
+[horizontal]
+*Syntax*:: `OidfedAddGrantType <type>`
+*Context*:: server config
+
+Adds a supported grant type to the metadata (e.g., `authorization_code`, `refresh_token`).
+Default grant type is `authorization_code`.
+
+=== Filter configuration
+
+==== `OidfedAddOpFilterChain`
+[horizontal]
+*Syntax*:: `OidfedAddOpFilterChain <type> [args...]`
+*Context*:: server config
+
+Adds a filter to the OP filter chain.
+This is used for the "`OpenID Federation Home Organization Discovery Flow`" specification's initial implementation.
+
+Supported filter types:
+
+`op`:: Filter by returning entities by only OPs.
+This is the default behavior, and can only be filtered tighter by the following sub-commands.
+`explicit`:: Filter OPs supporting explicit registration.
+`auto`:: Filter OPs supporting automatic registration.
+`grants <grant1> [grant2...]`:: Filter by supported grant types.
+`scopes <scope1> [scope2...]`:: Filter by supported scopes.
+
+These filters are used when the login-url is requested without providing the `iss` parameter.
+In this case, the module performs an entity collection and shows the result on the screen for the user to select.
+
+This implementation does not support filtering on incoming relying-party identifiers to render different choices for the user.
+The presence on the `entity_id` parameter is checked for conformance, but otherwise ignored.
+
+== Example configuration
+
+[source, apache]
+----
+OidfedSetEntityId https://rp.example.org
+OidfedSetLoginPath /login
+
+OidfedAddTrustAnchor https://ta.example.org
+OidfedAddAuthorityHint https://intermediate.example.org
+
+OidfedSetOidFederationSigningKey /etc/apache2/keys/fed_private.pem
+OidfedSetOidFederationSignatureAlgorithm ES512
+OidfedSetOidConnectSigningKey /etc/apache2/keys/oidc_private.pem
+OidfedSetOidConnectSignatureAlgorithm ES512
+
+OidfedAddRPRedirectURI /callback
+OidfedSetClientName "Example RP"
+OidfedSetOrganizationName "Example Org"
+----

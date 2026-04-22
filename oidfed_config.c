@@ -269,36 +269,6 @@ type_too_long:
 }
 
 const char*
-oidfed_cfg_set_rp_metadata_url(cmd_parms* parms, void* mconfig, const char* w) {
-    SAFE_COPY_CONFIG(parms, "OidfedSetRPMetadataURL", metadata.rp_metadata_url, w);
-}
-
-const char*
-oidfed_cfg_set_rp_metadata_digest(cmd_parms* parms, void* mconfig, const char* w) {
-    SAFE_COPY_CONFIG(parms, "OidfedSetRPMetadataDigest", metadata.rp_metadata_digest, w);
-}
-
-const char*
-oidfed_cfg_set_rp_metadata_digest_alg(cmd_parms* parms, void* mconfig, const char* w) {
-    SAFE_COPY_CONFIG(parms, "OidfedSetRPMetadataDigestAlgorithm", metadata.rp_metadata_digest_alg, w);
-}
-
-const char*
-oidfed_cfg_set_fe_metadata_url(cmd_parms* parms, void* mconfig, const char* w) {
-    SAFE_COPY_CONFIG(parms, "OidfedSetFEMetadataURL", metadata.fe_metadata_url, w);
-}
-
-const char*
-oidfed_cfg_set_fe_metadata_digest(cmd_parms* parms, void* mconfig, const char* w) {
-    SAFE_COPY_CONFIG(parms, "OidfedSetFEMetadataDigest", metadata.fe_metadata_digest, w);
-}
-
-const char*
-oidfed_cfg_set_fe_metadata_digest_alg(cmd_parms* parms, void* mconfig, const char* w) {
-    SAFE_COPY_CONFIG(parms, "OidfedSetFEMetadataDigestAlgorithm", metadata.fe_metadata_digest_alg, w);
-}
-
-const char*
 oidfed_cfg_add_rp_redirect_uri(cmd_parms* parms, void* mconfig, const char* w) {
     struct oidfed_config* const cfg = ap_get_module_config(parms->server->module_config, &oidfed);
     if (cfg->metadata.rp_redirect_uris_sz >= CONFIG_METADATA_REDIRECT_URIS_MAX) {
@@ -306,11 +276,6 @@ oidfed_cfg_add_rp_redirect_uri(cmd_parms* parms, void* mconfig, const char* w) {
     }
     cfg->metadata.rp_redirect_uris[cfg->metadata.rp_redirect_uris_sz++] = apr_pstrdup(parms->pool, w);
     return NULL;
-}
-
-const char*
-oidfed_cfg_set_application_type(cmd_parms* parms, void* mconfig, const char* w) {
-    SAFE_COPY_CONFIG(parms, "OidfedSetApplicationType", metadata.application_type, w);
 }
 
 const char*
@@ -335,16 +300,6 @@ oidfed_cfg_add_client_reg_type(cmd_parms* parms, void* mconfig, const char* w) {
         return "OidfedAddClientRegistrationType: too many client registration types";
     }
     cfg->metadata.client_registration_types[cfg->metadata.client_registration_types_sz++] = apr_pstrdup(parms->pool, w);
-    return NULL;
-}
-
-const char*
-oidfed_cfg_add_response_type(cmd_parms* parms, void* mconfig, const char* w) {
-    struct oidfed_config* const cfg = ap_get_module_config(parms->server->module_config, &oidfed);
-    if (cfg->metadata.response_types_sz >= CONFIG_METADATA_RESPONSE_TYPES_MAX) {
-        return "OidfedAddResponseType: too many response types";
-    }
-    cfg->metadata.response_types[cfg->metadata.response_types_sz++] = apr_pstrdup(parms->pool, w);
     return NULL;
 }
 
@@ -496,7 +451,7 @@ oidfed_worker_runtime_init(server_rec* sv, struct oidfed_config* config) {
          it;
          it = it->next) {
         config_filter_append(sv, config, it, &runtime->filter);
-    }
+         }
 
     const char* error_str = 0;
 
@@ -563,7 +518,7 @@ oidfed_worker_runtime_init(server_rec* sv, struct oidfed_config* config) {
     ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, sv, "(worker:%d) creating entity metadata objects", getpid());
     runtime->rp_metadata = oidfedMetadataCreate(sv);
     const struct oidfed_openid_relying_party_metadata rp = oidfedOpenIDRelyingPartyMetadataCreate(sv);
-    oidfedOpenIDRelyingPartyMetadataSetApplicationType(sv, rp, config->metadata.application_type);
+    oidfedOpenIDRelyingPartyMetadataSetApplicationType(sv, rp, "web");
     oidfedOpenIDRelyingPartyMetadataSetClientName(sv, rp, config->metadata.client_name);
     oidfedOpenIDRelyingPartyMetadataSetOrganizationName(sv, rp, config->metadata.organization_name);
     oidfedOpenIDRelyingPartyMetadataSetClientRegistrationTypes(
@@ -571,8 +526,7 @@ oidfed_worker_runtime_init(server_rec* sv, struct oidfed_config* config) {
         config->metadata.client_registration_types_sz
     );
     oidfedOpenIDRelyingPartyMetadataSetResponseTypes(
-        sv, rp, config->metadata.response_types,
-        config->metadata.response_types_sz
+        sv, rp, &(char*){"code"}, 1
     );
     oidfedOpenIDRelyingPartyMetadataSetGrantTypes(
         sv, rp, config->metadata.grant_types,
@@ -614,8 +568,6 @@ oidfed_worker_runtime_init(server_rec* sv, struct oidfed_config* config) {
         return;
     }
 
-    // After success, set the owner pid; this can act as a sanity check that we did not break things
-    // in a way that made httpd give this object to another worker somehow.
     runtime->owner_pid = getpid();
     ap_log_error(APLOG_MARK, APLOG_INFO, 0, sv, "(worker:%d) initialized worker, ready to work", getpid());
 }
@@ -641,21 +593,6 @@ oidfed_config_init(struct oidfed_config* cfg) {
     strlcpy(cfg->oidc_signing_key_file, CONFIG_DEFAULT_OIDC_KEY_FILE, sizeof(cfg->oidc_signing_key_file));
     strlcpy(cfg->oidc_signing_alg, CONFIG_DEFAULT_OIDC_SIGNALG, sizeof(cfg->oidc_signing_alg));
 
-    strlcpy(cfg->metadata.rp_metadata_url, CONFIG_DEFAULT_METADATA_URL, sizeof(cfg->metadata.rp_metadata_url));
-    strlcpy(cfg->metadata.rp_metadata_digest, CONFIG_DEFAULT_METADATA_DIGEST, sizeof(cfg->metadata.rp_metadata_digest));
-    strlcpy(
-        cfg->metadata.rp_metadata_digest_alg, CONFIG_DEFAULT_METADATA_DIGEST_ALG,
-        sizeof(cfg->metadata.rp_metadata_digest_alg)
-    );
-
-    strlcpy(cfg->metadata.fe_metadata_url, CONFIG_DEFAULT_METADATA_URL, sizeof(cfg->metadata.fe_metadata_url));
-    strlcpy(cfg->metadata.fe_metadata_digest, CONFIG_DEFAULT_METADATA_DIGEST, sizeof(cfg->metadata.fe_metadata_digest));
-    strlcpy(
-        cfg->metadata.fe_metadata_digest_alg, CONFIG_DEFAULT_METADATA_DIGEST_ALG,
-        sizeof(cfg->metadata.fe_metadata_digest_alg)
-    );
-
-    strlcpy(cfg->metadata.application_type, CONFIG_DEFAULT_APPLICATION_TYPE, sizeof(cfg->metadata.application_type));
     strlcpy(cfg->metadata.client_name, CONFIG_DEFAULT_CLIENT_NAME, sizeof(cfg->metadata.client_name));
     strlcpy(cfg->metadata.organization_name, CONFIG_DEFAULT_ORGANIZATION_NAME, sizeof(cfg->metadata.organization_name));
     strlcpy(cfg->metadata.logo_uri, CONFIG_DEFAULT_LOGO_URI, sizeof(cfg->metadata.logo_uri));
@@ -664,9 +601,6 @@ oidfed_config_init(struct oidfed_config* cfg) {
     cfg->metadata.client_registration_types[0] = CONFIG_DEFAULT_CLIENT_REG_TYPE;
 
     cfg->metadata.rp_redirect_uris_sz = 0;
-
-    cfg->metadata.response_types_sz = 1;
-    cfg->metadata.response_types[0] = CONFIG_DEFAULT_RESPONSE_TYPE;
 
     cfg->metadata.grant_types_sz = 1;
     cfg->metadata.grant_types[0] = CONFIG_DEFAULT_GRANT_TYPE;

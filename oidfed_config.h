@@ -43,10 +43,9 @@
 
 #define CONFIG_DEFAULT_APPLICATION_TYPE "web"
 #define CONFIG_DEFAULT_CLIENT_NAME "apache-client"
-#define CONFIG_DEFAULT_ORGANIZATION_NAME "demo"
+#define CONFIG_DEFAULT_ORGANIZATION_NAME "demo ltd."
 #define CONFIG_DEFAULT_LOGO_URI "https://placehold.co/300x200"
 #define CONFIG_DEFAULT_CLIENT_REG_TYPE "automatic"
-#define CONFIG_DEFAULT_RESPONSE_TYPE "code"
 #define CONFIG_DEFAULT_GRANT_TYPE "authorization_code"
 #define CONFIG_DEFAULT_REDIRECT_PATH "/callback"
 
@@ -118,26 +117,10 @@ struct oidfed_worker_config {
 };
 
 struct oidfed_metadata_config {
-    /// RP Metadata URL
-    char rp_metadata_url[CONFIG_METADATA_STR_MAX];
-    /// RP Metadata Digest
-    char rp_metadata_digest[CONFIG_METADATA_STR_MAX];
-    /// RP Metadata Digest Algorithm
-    char rp_metadata_digest_alg[CONFIG_METADATA_STR_MAX];
-
-    /// Federation Entity Metadata URL
-    char fe_metadata_url[CONFIG_METADATA_STR_MAX];
-    /// Federation Entity Metadata Digest
-    char fe_metadata_digest[CONFIG_METADATA_STR_MAX];
-    /// Federation Entity Metadata Digest Algorithm
-    char fe_metadata_digest_alg[CONFIG_METADATA_STR_MAX];
-
     /// RP Redirect URIs
     char* rp_redirect_uris[CONFIG_METADATA_REDIRECT_URIS_MAX];
     size_t rp_redirect_uris_sz;
 
-    /// Application Type
-    char application_type[CONFIG_METADATA_STR_MAX];
     /// Client Name
     char client_name[CONFIG_METADATA_STR_MAX];
     /// Organization Name
@@ -148,10 +131,6 @@ struct oidfed_metadata_config {
     /// Client Registration Types
     char* client_registration_types[CONFIG_METADATA_CLIENT_REG_TYPES_MAX];
     size_t client_registration_types_sz;
-
-    /// Response Types
-    char* response_types[CONFIG_METADATA_RESPONSE_TYPES_MAX];
-    size_t response_types_sz;
 
     /// Grant Types
     char* grant_types[CONFIG_METADATA_GRANT_TYPES_MAX];
@@ -234,28 +213,7 @@ const char*
 oidfged_cfg_set_fed_signalg(cmd_parms* parms, void* mconfig, const char* w);
 
 const char*
-oidfed_cfg_set_rp_metadata_url(cmd_parms* parms, void* mconfig, const char* w);
-
-const char*
-oidfed_cfg_set_rp_metadata_digest(cmd_parms* parms, void* mconfig, const char* w);
-
-const char*
-oidfed_cfg_set_rp_metadata_digest_alg(cmd_parms* parms, void* mconfig, const char* w);
-
-const char*
-oidfed_cfg_set_fe_metadata_url(cmd_parms* parms, void* mconfig, const char* w);
-
-const char*
-oidfed_cfg_set_fe_metadata_digest(cmd_parms* parms, void* mconfig, const char* w);
-
-const char*
-oidfed_cfg_set_fe_metadata_digest_alg(cmd_parms* parms, void* mconfig, const char* w);
-
-const char*
 oidfed_cfg_add_rp_redirect_uri(cmd_parms* parms, void* mconfig, const char* w);
-
-const char*
-oidfed_cfg_set_application_type(cmd_parms* parms, void* mconfig, const char* w);
 
 const char*
 oidfed_cfg_set_client_name(cmd_parms* parms, void* mconfig, const char* w);
@@ -268,9 +226,6 @@ oidfed_cfg_set_logo_uri(cmd_parms* parms, void* mconfig, const char* w);
 
 const char*
 oidfed_cfg_add_client_reg_type(cmd_parms* parms, void* mconfig, const char* w);
-
-const char*
-oidfed_cfg_add_response_type(cmd_parms* parms, void* mconfig, const char* w);
 
 const char*
 oidfed_cfg_add_grant_type(cmd_parms* parms, void* mconfig, const char* w);
@@ -300,22 +255,8 @@ static const command_rec oidfed_cmds[] = {
                   "Set the Federation metadata signing key"),
     AP_INIT_TAKE1("OidfedSetOidFederationSignatureAlgorithm", oidfged_cfg_set_fed_signalg, NULL, RSRC_CONF,
                   "Set the RelyingParty metadata signature algorithm"),
-    AP_INIT_TAKE1("OidfedSetRPMetadataURL", oidfed_cfg_set_rp_metadata_url, NULL, RSRC_CONF,
-                  "Set the Relying Party Metadata URL"),
-    AP_INIT_TAKE1("OidfedSetRPMetadataDigest", oidfed_cfg_set_rp_metadata_digest, NULL, RSRC_CONF,
-                  "Set the Relying Party Metadata Digest"),
-    AP_INIT_TAKE1("OidfedSetRPMetadataDigestAlgorithm", oidfed_cfg_set_rp_metadata_digest_alg, NULL, RSRC_CONF,
-                  "Set the Relying Party Metadata Digest Algorithm"),
-    AP_INIT_TAKE1("OidfedSetFEMetadataURL", oidfed_cfg_set_fe_metadata_url, NULL, RSRC_CONF,
-                  "Set the Federation Entity Metadata URL"),
-    AP_INIT_TAKE1("OidfedSetFEMetadataDigest", oidfed_cfg_set_fe_metadata_digest, NULL, RSRC_CONF,
-                  "Set the Federation Entity Metadata Digest"),
-    AP_INIT_TAKE1("OidfedSetFEMetadataDigestAlgorithm", oidfed_cfg_set_fe_metadata_digest_alg, NULL, RSRC_CONF,
-                  "Set the Federation Entity Metadata Digest Algorithm"),
     AP_INIT_TAKE1("OidfedAddRPRedirectURI", oidfed_cfg_add_rp_redirect_uri, NULL, RSRC_CONF,
                   "Add a redirect URI (as path relative to entity-id) to the Relying Party metadata"),
-    AP_INIT_TAKE1("OidfedSetApplicationType", oidfed_cfg_set_application_type, NULL, RSRC_CONF,
-                  "Set the Application Type in metadata"),
     AP_INIT_TAKE1("OidfedSetClientName", oidfed_cfg_set_client_name, NULL, RSRC_CONF,
                   "Set the Client Name in metadata"),
     AP_INIT_TAKE1("OidfedSetOrganizationName", oidfed_cfg_set_organization_name, NULL, RSRC_CONF,
@@ -324,8 +265,6 @@ static const command_rec oidfed_cmds[] = {
                   "Set the Logo URI in metadata"),
     AP_INIT_TAKE1("OidfedAddClientRegistrationType", oidfed_cfg_add_client_reg_type, NULL, RSRC_CONF,
                   "Add a Client Registration Type to metadata"),
-    AP_INIT_TAKE1("OidfedAddResponseType", oidfed_cfg_add_response_type, NULL, RSRC_CONF,
-                  "Add a Response Type to metadata"),
     AP_INIT_TAKE1("OidfedAddGrantType", oidfed_cfg_add_grant_type, NULL, RSRC_CONF,
                   "Add a Grant Type to metadata"),
     {NULL}

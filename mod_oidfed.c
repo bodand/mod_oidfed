@@ -122,41 +122,6 @@ oidfed_merge_dir_config(apr_pool_t* apr_pool, void* base_conf, void* new_conf) {
 
     // Merge metadata
     const struct oidfed_config* meta_base = new;
-    if (str_empty(new->metadata.rp_metadata_url)) meta_base = base;
-    strlcpy(result->metadata.rp_metadata_url, meta_base->metadata.rp_metadata_url,
-            sizeof(result->metadata.rp_metadata_url));
-
-    meta_base = new;
-    if (str_empty(new->metadata.rp_metadata_digest)) meta_base = base;
-    strlcpy(result->metadata.rp_metadata_digest, meta_base->metadata.rp_metadata_digest,
-            sizeof(result->metadata.rp_metadata_digest));
-
-    meta_base = new;
-    if (str_empty(new->metadata.rp_metadata_digest_alg)) meta_base = base;
-    strlcpy(result->metadata.rp_metadata_digest_alg, meta_base->metadata.rp_metadata_digest_alg,
-            sizeof(result->metadata.rp_metadata_digest_alg));
-
-    meta_base = new;
-    if (str_empty(new->metadata.fe_metadata_url)) meta_base = base;
-    strlcpy(result->metadata.fe_metadata_url, meta_base->metadata.fe_metadata_url,
-            sizeof(result->metadata.fe_metadata_url));
-
-    meta_base = new;
-    if (str_empty(new->metadata.fe_metadata_digest)) meta_base = base;
-    strlcpy(result->metadata.fe_metadata_digest, meta_base->metadata.fe_metadata_digest,
-            sizeof(result->metadata.fe_metadata_digest));
-
-    meta_base = new;
-    if (str_empty(new->metadata.fe_metadata_digest_alg)) meta_base = base;
-    strlcpy(result->metadata.fe_metadata_digest_alg, meta_base->metadata.fe_metadata_digest_alg,
-            sizeof(result->metadata.fe_metadata_digest_alg));
-
-    meta_base = new;
-    if (str_empty(new->metadata.application_type)) meta_base = base;
-    strlcpy(result->metadata.application_type, meta_base->metadata.application_type,
-            sizeof(result->metadata.application_type));
-
-    meta_base = new;
     if (str_empty(new->metadata.client_name)) meta_base = base;
     strlcpy(result->metadata.client_name, meta_base->metadata.client_name,
             sizeof(result->metadata.client_name));
@@ -192,16 +157,6 @@ oidfed_merge_dir_config(apr_pool_t* apr_pool, void* base_conf, void* new_conf) {
            sizeof(char*) * base->metadata.client_registration_types_sz);
     memcpy(result->metadata.client_registration_types + base->metadata.client_registration_types_sz,
            new->metadata.client_registration_types, sizeof(char*) * new->metadata.client_registration_types_sz);
-
-    result->metadata.response_types_sz = base->metadata.response_types_sz + new->metadata.response_types_sz;
-    if (result->metadata.response_types_sz > CONFIG_METADATA_RESPONSE_TYPES_MAX) {
-        ap_log_error(APLOG_MARK, APLOG_EMERG, 0, NULL, "Too many response types");
-        goto error;
-    }
-    memcpy(result->metadata.response_types, base->metadata.response_types,
-           sizeof(char*) * base->metadata.response_types_sz);
-    memcpy(result->metadata.response_types + base->metadata.response_types_sz,
-           new->metadata.response_types, sizeof(char*) * new->metadata.response_types_sz);
 
     result->metadata.grant_types_sz = base->metadata.grant_types_sz + new->metadata.grant_types_sz;
     if (result->metadata.grant_types_sz > CONFIG_METADATA_GRANT_TYPES_MAX) {
