@@ -138,6 +138,16 @@ ul:has(.op-elem) {
     animation: slide-bottom 0.5s cubic-bezier(0.250, 0.460, 0.450, 0.940) both;
 }
 
+.op-elem > a:focus {
+    outline: 2px solid transparent;
+    outline-offset: 2px;
+    color: var(--color-base-700);
+}
+
+.op-elem > a:focus::after {
+    width: 70%;
+}
+
 .op-elem > a::after {
     display: block;
     z-index: -5;

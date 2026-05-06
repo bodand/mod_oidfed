@@ -347,7 +347,8 @@ req_login_ui_handler(const struct oidfed_config* config, request_rec* r) {
         if (str_empty(name)) name = hinted.entity_id;
 
         ap_rputs("<h2 class=\"op-listing-header\">Suggested:</h2>", r);
-        ap_rputs("<div class=\"op-elem op-hinted\" style=\"--op-index: 0\"><a href=\"", r);
+        ap_rputs("<div class=\"op-elem op-hinted\" style=\"--op-index: 0\">"
+                 "<a autofocus href=\"", r);
         ap_rputs(config->login_url, r);
         ap_rputs("?iss=", r);
         ap_rputs(apr_pescape_urlencoded(r->pool, hinted.entity_id), r);
@@ -360,11 +361,9 @@ req_login_ui_handler(const struct oidfed_config* config, request_rec* r) {
         ap_rputs("</a></div>", r);
     }
     
-    ap_rputs("<h2 class=\"op-listing-header\">Listing:</h2>", r);
+    ap_rputs("<h2 class=\"op-listing-header\">All options:</h2>", r);
     ap_rputs("<ul class=\"op-listing\">", r);
     for (int i = 0; i < ops_list->nelts; i++) {
-        if (i == hinted_idx) continue;
-
         char i_str[sizeof("18446744073709551615")] = {0};
         assert(sizeof(int) * CHAR_BIT <= 64); // error on massive int sizes
 
