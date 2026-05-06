@@ -141,11 +141,12 @@ ul:has(.op-elem) {
 .op-elem > a:focus {
     outline: 2px solid transparent;
     outline-offset: 2px;
-    color: var(--color-base-950);
+    color: var(--color-indigo-900);
 }
 
 .op-elem > a:focus::after {
     width: 100%;
+    background-color: var(--color-indigo-500);
 }
 
 .op-elem > a::after {
