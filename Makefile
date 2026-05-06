@@ -36,7 +36,7 @@ all: lib_builds local-shared-build
 
 local-shared-build: lib_builds
 
-install: install-modules-yes ${apxs_exp_libdir}/oidfed_wrap.so
+install: install-modules-yes ${apxs_exp_libdir}/liboidfed_wrap.so
 	@exec echo "===================== CSS installation ========================"
 	@exec echo "You need to ensure you copy oidfed.css to your site's root, or"
 	@exec echo "provide your own version for styling."
@@ -47,7 +47,7 @@ install: install-modules-yes ${apxs_exp_libdir}/oidfed_wrap.so
 	@exec echo "If SITE is not set, it defaults to /var/www/html"
 	@exec echo "==============================================================="
 
-${apxs_exp_libdir}/oidfed_wrap.so: deps/oidfed_wrap/lib/lib/liboidfed_wrap.so
+${apxs_exp_libdir}/liboidfed_wrap.so: deps/oidfed_wrap/lib/lib/liboidfed_wrap.so
 	exec install -m644 deps/oidfed_wrap/lib/lib/liboidfed_wrap.so $@
 
 css: ${SITE}/oidfed.css
