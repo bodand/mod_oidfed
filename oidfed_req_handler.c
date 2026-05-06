@@ -336,7 +336,7 @@ req_login_ui_handler(const struct oidfed_config* config, request_rec* r) {
              "<link rel=\"stylesheet\" type=\"text/css\" href=\"oidfed.css\">"
              "</head>"
              "<body>"
-             "<h1 class=\"op-listing-header\">Available OPs:</h1>", r);
+             "<h1 class=\"op-listing-header\">Choose where to log in:</h1>", r);
 
     if (hinted.entity_id) {
         ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "OP hinted: %s (%s)",
@@ -347,9 +347,7 @@ req_login_ui_handler(const struct oidfed_config* config, request_rec* r) {
         if (str_empty(name)) name = hinted.entity_id;
 
         ap_rputs("<h2 class=\"op-listing-header\">Suggested:</h2>", r);
-        ap_rputs("<div class=\"op-elem\" style=\"--op-index: ", r);
-        ap_rputs(0, r);
-        ap_rputs("\"><a href=\"", r);
+        ap_rputs("<div class=\"op-elem op-hinted\" style=\"--op-index: 0\"><a href=\"", r);
         ap_rputs(config->login_url, r);
         ap_rputs("?iss=", r);
         ap_rputs(apr_pescape_urlencoded(r->pool, hinted.entity_id), r);
@@ -358,10 +356,11 @@ req_login_ui_handler(const struct oidfed_config* config, request_rec* r) {
             ap_rputs(apr_pescape_urlencoded(r->pool, return_to), r);
         }
         ap_rputs("\">", r);
-        ap_rputs(hinted.display_name ? hinted.display_name : hinted.entity_id, r);
+        ap_rputs(name, r);
         ap_rputs("</a></div>", r);
     }
     
+    ap_rputs("<h2 class=\"op-listing-header\">Listing:</h2>", r);
     ap_rputs("<ul class=\"op-listing\">", r);
     for (int i = 0; i < ops_list->nelts; i++) {
         if (i == hinted_idx) continue;
