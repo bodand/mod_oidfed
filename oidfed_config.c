@@ -530,6 +530,8 @@ oidfed_worker_runtime_init(server_rec* sv, struct oidfed_config* config) {
         sv, rp, config->metadata.client_registration_types,
         config->metadata.client_registration_types_sz
     );
+    char* login_full = apr_pstrcat(sv->process->pool, config->entity_id, config->login_url, NULL);
+    oidfedOpenIDRelyingPartyMetadataSetInitiateLoginUri(sv, rp, login_full);
     oidfedOpenIDRelyingPartyMetadataSetResponseTypes(
         sv, rp, &(char*){"code"}, 1
     );
@@ -545,6 +547,7 @@ oidfed_worker_runtime_init(server_rec* sv, struct oidfed_config* config) {
         redir_uris[i] = apr_pstrcat(sv->process->pool, config->entity_id, config->metadata.rp_redirect_uris[i], NULL);
     }
     oidfedOpenIDRelyingPartyMetadataSetRedirectUris(sv, rp, redir_uris, config->metadata.rp_redirect_uris_sz);
+
 
     oidfedMetadataSetRPMetadata(sv, runtime->rp_metadata, rp.impl);
 
