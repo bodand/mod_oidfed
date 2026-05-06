@@ -328,12 +328,6 @@ req_login_ui_handler(const struct oidfed_config* config, request_rec* r) {
             break;
         }
     }
-    if (hinted.entity_id) {
-        for (int i = hinted_idx; i < ops_list->nelts - 1; i++) {
-            APR_ARRAY_IDX(ops_list, i, struct op_info) = APR_ARRAY_IDX(ops_list, i + 1, struct op_info);
-        }
-        --ops_list->nelts;
-    }
 
     ap_set_content_type(r, "text/html");
     ap_rputs("<html>"
@@ -345,6 +339,9 @@ req_login_ui_handler(const struct oidfed_config* config, request_rec* r) {
              "<h1 class=\"op-listing-header\">Available OPs:</h1>", r);
 
     if (hinted.entity_id) {
+        ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "OP hinted: %s (%s)",
+            hinted.entity_id,
+            hinted.display_name ? hinted.display_name : "?");
         char* name = hinted.display_name;
         if (!name) name = hinted.entity_id;
         if (str_empty(name)) name = hinted.entity_id;
@@ -367,6 +364,8 @@ req_login_ui_handler(const struct oidfed_config* config, request_rec* r) {
     
     ap_rputs("<ul class=\"op-listing\">", r);
     for (int i = 0; i < ops_list->nelts; i++) {
+        if (i == hinted_idx) continue;
+
         char i_str[sizeof("18446744073709551615")] = {0};
         assert(sizeof(int) * CHAR_BIT <= 64); // error on massive int sizes
 
