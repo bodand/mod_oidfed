@@ -110,6 +110,11 @@ ul:has(.op-elem) {
     animation-delay: calc(var(--op-index) * 40ms);
 }
 
+.op-elem[data-op-hinted="true"] {
+    animation-delay: 0ms;
+    order: 0;
+}
+
 .op-elem > a {
     text-decoration: none;
     color: var(--color-base-900);

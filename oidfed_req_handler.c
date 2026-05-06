@@ -345,10 +345,11 @@ req_login_ui_handler(const struct oidfed_config* config, request_rec* r) {
 
         ap_rputs("<li class=\"op-elem\" style=\"--op-index: ", r);
         ap_rputs(i_str, r);
+        ap_rputs("\"", r);
         if (hinted) {
-            ap_rputs("; --op-hinted: true", r);
+            ap_rputs(" data-op-hinted=\"true\"", r);
         }
-        ap_rputs("\"><a href=\"", r);
+        ap_rputs("><a href=\"", r);
         ap_rputs(config->login_url, r);
         ap_rputs("?iss=", r);
         ap_rputs(info->entity_id, r);
