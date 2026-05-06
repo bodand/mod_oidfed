@@ -75,9 +75,16 @@ html, body {
 }
 
 .op-listing-header {
-    font-size: 1.5rem;
     font-weight: bold;
     margin: 1rem 2rem;
+}
+
+h1.op-listing-header {
+    font-size: 1.5rem;
+}
+
+h2.op-listing-header {
+    font-size: 1.2rem;
 }
 
 .op-listing {
@@ -108,11 +115,6 @@ ul:has(.op-elem) {
     height: 100px;
     animation: slide-bottom 0.5s cubic-bezier(0.250, 0.460, 0.450, 0.940) both;
     animation-delay: calc(var(--op-index) * 40ms);
-}
-
-.op-elem[data-op-hinted="true"] {
-    animation-delay: 0ms;
-    order: 0;
 }
 
 .op-elem > a {

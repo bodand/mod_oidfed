@@ -317,7 +317,23 @@ req_login_ui_handler(const struct oidfed_config* config, request_rec* r) {
     for (size_t i = 0; i < rt->trust_anchors_sz; i++)
         collect_from_trust_anchor(r, rt, rendered_ops, ops_list, rt->trust_anchors[i]);
 
+    struct op_info hinted = {0};
+    int hinted_idx = 0;
+    
     qsort(ops_list->elts, ops_list->nelts, ops_list->elt_size, compare_ops);
+    for (; hinted_idx < ops_list->nelts; hinted_idx++) {
+        const struct op_info* const info = &APR_ARRAY_IDX(ops_list, hinted_idx, struct op_info);
+        if (op_hint && strcmp(info->entity_id, op_hint) == CMP_EQ) {
+            hinted = *info;
+            break;
+        }
+    }
+    if (hinted.entity_id) {
+        for (int i = hinted_idx; i < ops_list->nelts - 1; i++) {
+            APR_ARRAY_IDX(ops_list, i, struct op_info) = APR_ARRAY_IDX(ops_list, i + 1, struct op_info);
+        }
+        --ops_list->nelts;
+    }
 
     ap_set_content_type(r, "text/html");
     ap_rputs("<html>"
@@ -326,9 +342,30 @@ req_login_ui_handler(const struct oidfed_config* config, request_rec* r) {
              "<link rel=\"stylesheet\" type=\"text/css\" href=\"oidfed.css\">"
              "</head>"
              "<body>"
-             "<h1 class=\"op-listing-header\">Available OPs:</h1>"
-             "<ul class=\"op-listing\">", r);
+             "<h1 class=\"op-listing-header\">Available OPs:</h1>", r);
 
+    if (hinted.entity_id) {
+        char* name = hinted.display_name;
+        if (!name) name = hinted.entity_id;
+        if (str_empty(name)) name = hinted.entity_id;
+
+        ap_rputs("<h2 class=\"op-listing-header\">Suggested:</h2>", r);
+        ap_rputs("<div class=\"op-elem\" style=\"--op-index: ", r);
+        ap_rputs(0, r);
+        ap_rputs("\"><a href=\"", r);
+        ap_rputs(config->login_url, r);
+        ap_rputs("?iss=", r);
+        ap_rputs(apr_pescape_urlencoded(r->pool, hinted.entity_id), r);
+        if (return_to) {
+            ap_rputs("&target_link_uri=", r);
+            ap_rputs(apr_pescape_urlencoded(r->pool, return_to), r);
+        }
+        ap_rputs("\">", r);
+        ap_rputs(hinted.display_name ? hinted.display_name : hinted.entity_id, r);
+        ap_rputs("</a></div>", r);
+    }
+    
+    ap_rputs("<ul class=\"op-listing\">", r);
     for (int i = 0; i < ops_list->nelts; i++) {
         char i_str[sizeof("18446744073709551615")] = {0};
         assert(sizeof(int) * CHAR_BIT <= 64); // error on massive int sizes
@@ -341,18 +378,12 @@ req_login_ui_handler(const struct oidfed_config* config, request_rec* r) {
         if (!name) name = info->entity_id;
         if (str_empty(name)) name = info->entity_id;
 
-        const bool hinted = op_hint && strcmp(info->entity_id, op_hint) == CMP_EQ;
-
         ap_rputs("<li class=\"op-elem\" style=\"--op-index: ", r);
         ap_rputs(i_str, r);
-        ap_rputs("\"", r);
-        if (hinted) {
-            ap_rputs(" data-op-hinted=\"true\"", r);
-        }
-        ap_rputs("><a href=\"", r);
+        ap_rputs("\"><a href=\"", r);
         ap_rputs(config->login_url, r);
         ap_rputs("?iss=", r);
-        ap_rputs(info->entity_id, r);
+        ap_rputs(apr_pescape_urlencoded(r->pool, info->entity_id), r);
         if (return_to) {
             ap_rputs("&target_link_uri=", r);
             ap_rputs(apr_pescape_urlencoded(r->pool, return_to), r);
