@@ -286,38 +286,6 @@ collect_from_trust_anchor(request_rec* r,
     free(entities);
 }
 
-static bool
-op_hint_redirectable(request_rec* r,
-                     const struct oidfed_config* config,
-                     apr_array_header_t* ops_list,
-                     const char* return_to,
-                     const char* op_hint) {
-    if (!op_hint) return false;
-
-    for (int i = 0; i < ops_list->nelts; i++) {
-        const struct op_info* const info = &APR_ARRAY_IDX(ops_list, i, struct op_info);
-        ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, "Checking OP hint for: %s", info->entity_id);
-        if (strcmp(info->entity_id, op_hint) != CMP_EQ) continue;
-
-        ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, "Resolved OP was hinted: %s",
-                      op_hint);
-
-        const char* const url = apr_pstrcat(
-            r->pool,
-            config->login_url,
-            "?iss=",
-            ap_escape_urlencoded(r->pool, info->entity_id),
-            return_to ? "&target_link_uri=" : NULL,
-            return_to ? ap_escape_urlencoded(r->pool, return_to) : NULL,
-            NULL);
-
-        apr_table_set(r->headers_out, "Location", url);
-        return true;
-    }
-
-    return false;
-}
-
 int
 req_login_ui_handler(const struct oidfed_config* config, request_rec* r) {
     struct oidfed_worker_runtime* rt = config->worker_cfg.runtime;
@@ -349,9 +317,6 @@ req_login_ui_handler(const struct oidfed_config* config, request_rec* r) {
     for (size_t i = 0; i < rt->trust_anchors_sz; i++)
         collect_from_trust_anchor(r, rt, rendered_ops, ops_list, rt->trust_anchors[i]);
 
-    if (op_hint_redirectable(r, config, ops_list, return_to, op_hint))
-        return HTTP_TEMPORARY_REDIRECT;
-
     qsort(ops_list->elts, ops_list->nelts, ops_list->elt_size, compare_ops);
 
     ap_set_content_type(r, "text/html");
@@ -376,8 +341,13 @@ req_login_ui_handler(const struct oidfed_config* config, request_rec* r) {
         if (!name) name = info->entity_id;
         if (str_empty(name)) name = info->entity_id;
 
+        const bool hinted = op_hint && strcmp(info->entity_id, op_hint) == CMP_EQ;
+
         ap_rputs("<li class=\"op-elem\" style=\"--op-index: ", r);
         ap_rputs(i_str, r);
+        if (hinted) {
+            ap_rputs("; --op-hinted: true", r);
+        }
         ap_rputs("\"><a href=\"", r);
         ap_rputs(config->login_url, r);
         ap_rputs("?iss=", r);
