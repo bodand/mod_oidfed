@@ -23,8 +23,29 @@ $ ./configure <1>
 $ make
 $ make install <2>
 -----
-<1> This is not a standard configure script, expect no output in case of success.
+<1> This is not a standard AutoTools configure script, expect no output in case of success.
 <2> This may need elevated privileges.
+
+=== Build architecture
+
+The module is split into two repositories:
+
+1. The main module is this repository, this contains the main module that is intended to be loaded into Apache.
+
+2. https://github.com/bodand/oidfed_wrap[https://github.com/bodand/oidfed_wrap]: This repository contains a Go library that provides the C bindings.
+This is mounted at the _deps/oidfed_warp/src_ directory as a submodule.
+
+Because of this, the actual implementation Go library needs to be updated in the latter repository.
+Once that is done, and it builds/works as intended, then the submodule needs to be updated here.
+
+The module itself uses the same function names as exported by the wrapper go library.
+For this to work, while allowing delayed loading of the shared object, it uses the subtle macro trickery which has its core in _oidfed_wrap_loader.c_.
+This needs the symbols to be generated as a header and source files that actually perform the reading, which then is dependent on which context the call takes place (during a generic server configuration or a request).
+This is all abstracted away, but the _make-loader.pl_ file needs to be invoked to the new version of the library.
+
+[WARNING]
+The current Perl implementation WILL break if any argument is a function pointer.
+See the comment.
 
 == Configuration
 
