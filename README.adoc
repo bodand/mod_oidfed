@@ -32,7 +32,7 @@ The module is split into two repositories:
 
 1. The main module is this repository, this contains the main module that is intended to be loaded into Apache.
 
-2. https://github.com/bodand/oidfed_wrap[https://github.com/bodand/oidfed_wrap]: This repository contains a Go library that provides the C bindings.
+2. https://github.com/bodand/oidfed-wrap[https://github.com/bodand/oidfed-wrap]: This repository contains a Go library that provides the C bindings.
 This is mounted at the _deps/oidfed_warp/src_ directory as a submodule.
 
 Because of this, the actual implementation Go library needs to be updated in the latter repository.
