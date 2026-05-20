@@ -318,10 +318,9 @@ req_login_ui_handler(const struct oidfed_config* config, request_rec* r) {
         collect_from_trust_anchor(r, rt, rendered_ops, ops_list, rt->trust_anchors[i]);
 
     struct op_info hinted = {0};
-    int hinted_idx = 0;
-    
+
     qsort(ops_list->elts, ops_list->nelts, ops_list->elt_size, compare_ops);
-    for (; hinted_idx < ops_list->nelts; hinted_idx++) {
+    for (int hinted_idx = 0; hinted_idx < ops_list->nelts; hinted_idx++) {
         const struct op_info* const info = &APR_ARRAY_IDX(ops_list, hinted_idx, struct op_info);
         if (op_hint && strcmp(info->entity_id, op_hint) == CMP_EQ) {
             hinted = *info;
