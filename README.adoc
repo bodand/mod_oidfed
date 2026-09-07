@@ -2,6 +2,19 @@
 
 Apache2 module for handling OpenID Federation.
 
+      |   
+  \  ___  /     
+ _  /   \  _    GÉANT
+    |   |       Trust & Identity
+     \_/        Incubator
+      =
+  _________
+  |  * *  |     Co-Funded by
+  | *   * |     the European
+  |__*_*__|     Union
+
+
+
 == Building & installing
 
 For building _mod_oidfed_ you will need a reasonably up-to-date C and Go compilers/toolchains along with a Perl installation.
